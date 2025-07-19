@@ -387,6 +387,25 @@ tile_t * create_map()
 		0
 	);
 
+	map[ ( WINDOW_HEIGHT_BLOCKS - 6 ) * WINDOW_WIDTH_BLOCKS + 29 ] = create_sloped_tile(
+		16,
+		16,
+		16,
+		16,
+		16,
+		16,
+		16,
+		16,
+		16,
+		16,
+		16,
+		16,
+		16,
+		16,
+		16,
+		16
+	);
+
 	map[ ( WINDOW_HEIGHT_BLOCKS - 6 ) * WINDOW_WIDTH_BLOCKS + 30 ] = create_sloped_tile(
 		15,
 		14,

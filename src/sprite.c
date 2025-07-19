@@ -232,6 +232,8 @@ void update_player( tile_t * map, sprite_t * player, float dt )
 			const unsigned int relx = ( unsigned int )YC( player->x ) % 16;
 			const unsigned int rely = ( unsigned int )( YB( player->y ) ) - yb * 16;
 			const unsigned int sy = ( unsigned int )( get_tile_slope_colision( &map[ yb * WINDOW_WIDTH_BLOCKS + yc ], relx ) );
+			player->onground = 1;
+			player->jump_padding = is_going_fast( player ) ? 16.0f : 2.0f;
 			if ( sy >= 16 )
 			{
 				continue;
@@ -243,8 +245,6 @@ void update_player( tile_t * map, sprite_t * player, float dt )
 				player->vy = 0.0f;
 				player->accy = 0.0f;
 				player->onground = 1;
-				player->jump_padding = is_going_fast( player ) ? 16.0f : 2.0f;
-				onslope = 1;
 			}
 		}
 		if (
@@ -256,6 +256,8 @@ void update_player( tile_t * map, sprite_t * player, float dt )
 			const unsigned int relx = ( unsigned int )YC( player->x ) % 16;
 			const unsigned int rely = ( unsigned int )( YCB( player->y ) ) - ysb * 16;
 			const unsigned int sy = ( unsigned int )( get_tile_slope_colision( &map[ ysb * WINDOW_WIDTH_BLOCKS + yc ], relx ) );
+			player->onground = 1;
+			player->jump_padding = is_going_fast( player ) ? 16.0f : 2.0f;
 			if ( sy >= 16 )
 			{
 				continue;
@@ -267,8 +269,6 @@ void update_player( tile_t * map, sprite_t * player, float dt )
 				player->vy = 0.0f;
 				player->accy = 0.0f;
 				player->onground = 1;
-				player->jump_padding = is_going_fast( player ) ? 16.0f : 2.0f;
-				onslope = 1;
 			}
 		}
 
