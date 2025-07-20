@@ -15,6 +15,7 @@
 #define YCB( y ) ( ( y ) + 23.0f )
 
 static unsigned int is_going_fast( const sprite_t * sprite );
+static unsigned int slope_physics( const tile_t * map, sprite_t * sprite, float dti, float ypoint );
 
 sprite_t create_player( float x, float y )
 {
@@ -218,59 +219,11 @@ void update_player( tile_t * map, sprite_t * player, float dt )
 		const int yb = ( int )( YB( player->y ) / 16.0f );
 		const int yl = ( int )( YL( player->x ) / 16.0f );
 		const int yr = ( int )( YR( player->x ) / 16.0f );
-		const int yc = ( int )( YC( player->x ) / 16.0f );
-		const int ysb = ( int )( YCB( player->y ) / 16.0f );
 		unsigned int onslope = 0;
 
 		// Slope collision.
-		if (
-			yb < WINDOW_HEIGHT_BLOCKS && yb >= 0 &&
-			( yc < WINDOW_WIDTH_BLOCKS && yc >= 0 &&
-				( map[ yb * WINDOW_WIDTH_BLOCKS + yc ].type == TILE_SLOPE ) )
-		)
-		{
-			const unsigned int relx = ( unsigned int )YC( player->x ) % 16;
-			const unsigned int rely = ( unsigned int )( YB( player->y ) ) - yb * 16;
-			const unsigned int sy = ( unsigned int )( get_tile_slope_colision( &map[ yb * WINDOW_WIDTH_BLOCKS + yc ], relx ) );
-			if ( sy >= 16 )
-			{
-				continue;
-			}
-			const unsigned int sh = 16 - sy;
-			if ( rely >= sy )
-			{
-				player->y = ( float )( yb * 16 ) + ( float )( sy ) - 25.0f;
-				player->vy = 0.0f;
-				player->accy = 0.0f;
-				player->onground = 1;
-				player->jump_padding = is_going_fast( player ) ? 16.0f : 2.0f;
-				onslope = 1;
-			}
-		}
-		if (
-			ysb < WINDOW_HEIGHT_BLOCKS && ysb >= 0 &&
-			( yc < WINDOW_WIDTH_BLOCKS && yc >= 0 &&
-				( map[ ysb * WINDOW_WIDTH_BLOCKS + yc ].type == TILE_SLOPE ) )
-		)
-		{
-			const unsigned int relx = ( unsigned int )YC( player->x ) % 16;
-			const unsigned int rely = ( unsigned int )( YCB( player->y ) ) - ysb * 16;
-			const unsigned int sy = ( unsigned int )( get_tile_slope_colision( &map[ ysb * WINDOW_WIDTH_BLOCKS + yc ], relx ) );
-			if ( sy >= 16 )
-			{
-				continue;
-			}
-			const unsigned int sh = 16 - sy;
-			if ( rely >= sy )
-			{
-				player->y = ( float )( ysb * 16 ) + ( float )( sy ) - 25.0f;
-				player->vy = 0.0f;
-				player->accy = 0.0f;
-				player->onground = 1;
-				player->jump_padding = is_going_fast( player ) ? 16.0f : 2.0f;
-				onslope = 1;
-			}
-		}
+		onslope = slope_physics( map, player, dti, YCB( player->y ) );
+		onslope = slope_physics( map, player, dti, YB( player->y ) ) || onslope;
 
 		// Solid Y collision.
 		if (
@@ -383,3 +336,67 @@ static unsigned int is_going_fast( const sprite_t * sprite )
 {
 	return fabs( sprite->vx ) >= sprite->maxspeedx * 1.5f;
 };
+
+static unsigned int slope_physics( const tile_t * map, sprite_t * sprite, float dti, float ypoint )
+{
+	const int yb = ( int )( ypoint / 16.0f );
+	const int yc = ( int )( YC( sprite->x ) / 16.0f );
+	if (
+		yb < WINDOW_HEIGHT_BLOCKS && yb >= 0 &&
+		( yc < WINDOW_WIDTH_BLOCKS && yc >= 0 &&
+			( map[ yb * WINDOW_WIDTH_BLOCKS + yc ].type == TILE_SLOPE ) )
+	)
+	{
+		const unsigned int rely = ( unsigned int )( ypoint ) - yb * 16;
+		const unsigned int relx = ( unsigned int )( YC( sprite->x ) ) % 16;
+		const tile_t * tile = &map[ yb * WINDOW_WIDTH_BLOCKS + yc ];
+		const unsigned int sy = ( unsigned int )( get_tile_slope_colision( tile, relx ) );
+		if ( sy >= 16 )
+		{
+			return 0;
+		}
+		const unsigned int sh = 16 - sy;
+		if ( rely >= sy )
+		{
+			sprite->y = ( float )( yb * 16 ) + ( float )( sy ) - 25.0f;
+			sprite->vy = 0.0f;
+			sprite->accy = 0.0f;
+			sprite->onground = 1;
+			sprite->jump_padding = is_going_fast( sprite ) ? 16.0f : 2.0f;
+
+			if ( tile->steepness > TILE_FLAT )
+			{
+				const float resistance = tile->steepness == TILE_HIGH ? 0.1f
+					: tile->steepness == TILE_MEDIUM ? 0.2f
+					: 0.1f;
+				const float fall = tile->steepness == TILE_HIGH ? 1.0f : tile->steepness == TILE_MEDIUM ? 0.1f : 0.0f;
+				if ( tile->dirx == TILE_LEFT )
+				{
+					if ( sprite->vx > 0.0f )
+					{
+						sprite->vx /= ( 1.0 + resistance * dti );
+					}
+					else if ( sprite->vx < 0.0f )
+					{
+						sprite->vx *= ( 1.0 + resistance * dti );
+					}
+					sprite->vx -= fall * dti;
+				}
+				else
+				{
+					if ( sprite->vx > 0.0f )
+					{
+						sprite->vx *= ( 1.0 + resistance * dti );
+					}
+					else if ( sprite->vx < 0.0f )
+					{
+						sprite->vx /= ( 1.0 + resistance * dti );
+					}
+					sprite->vx += fall * dti;
+				}
+			}
+			return 1;
+		}
+	}
+	return 0;
+}
