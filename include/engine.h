@@ -23,6 +23,7 @@ float engine_get_ticks();
 int engine_init( const char * title );
 int engine_loop();
 void engine_render();
+void engine_set_graphic_h( graphic_id_t graphic_id, float h );
 void engine_set_graphic_x( graphic_id_t graphic_id, float x );
 void engine_set_graphic_y( graphic_id_t graphic_id, float y );
 unsigned int input_pressed_down();

@@ -1,18 +1,19 @@
 #include "config.h"
+#include "dir.h"
 #include <math.h>
 #include "sprite.h"
 
 #define XL( x ) ( ( x ) + 1.0f )
 #define XR( x ) ( ( x ) + 14.0f )
-#define XT( y ) ( ( y ) + 4.0f )
-#define XM( y ) ( ( y ) + 13.0f )
-#define XB( y ) ( ( y ) + 22.0f )
-#define YT( y ) ( ( y ) )
-#define YB( y ) ( ( y ) + 25.0f )
+#define XT( y, h ) ( ( y ) - ( h ) + 5.0f )
+#define XM( y, h ) ( ( y ) - ( h ) / 2.0f )
+#define XB( y ) ( ( y ) - 3.0f )
+#define YT( y, h ) ( ( y ) - ( h ) + 1.0f )
+#define YB( y ) ( ( y ) )
 #define YL( x ) ( ( x ) + 3.0f )
 #define YR( x ) ( ( x ) + 12.0f )
 #define YC( x ) ( ( x ) + 7.5f )
-#define YCB( y ) ( ( y ) + 23.0f )
+#define YCB( y ) ( ( y ) - 2.0f )
 
 static unsigned int is_going_fast( const sprite_t * sprite );
 static unsigned int slope_physics( const tile_t * map, sprite_t * sprite, float dti, float ypoint );
@@ -26,10 +27,14 @@ sprite_t create_player( float x, float y )
 	float w = 16.0f;
 	float h = 26.0f;
 	return ( sprite_t ){
+		.w = w,
+		.h = h,
 		.x = x,
 		.y = y,
 		.vx = 0.0f,
 		.vy = 0.0f,
+		.runvx = 0.0f,
+		.runvy = 0.0f,
 		.accx = 0.0f,
 		.accy = 0.0f,
 		.maxspeedx = 2.0f,
@@ -46,25 +51,28 @@ sprite_t create_player( float x, float y )
 		.onground = 0,
 		.jump_padding = 0.0f,
 		.jumplock = 0,
+		.isducking = 0,
+		.slidingdir = DIRX_NONE,
+		.prevslidingdir = DIRX_NONE,
 		.graphics = {
 			.rect = engine_add_graphic(
 				( rect ){ x, y, w, h },
 				( color ){ 1.0f, 0.0f, 1.0f, 1.0f }
 			),
 			.xtl_hitpoint = engine_add_graphic(
-				( rect ){ XL( x ), XT( y ), 1.0f, 1.0f },
+				( rect ){ XL( x ), XT( y, h ), 1.0f, 1.0f },
 				( color ){ 1.0f, 1.0f, 0.0f, 1.0f }
 			),
 			.xtr_hitpoint = engine_add_graphic(
-				( rect ){ XR( x ), XT( y ), 1.0f, 1.0f },
+				( rect ){ XR( x ), XT( y, h ), 1.0f, 1.0f },
 				( color ){ 1.0f, 1.0f, 0.0f, 1.0f }
 			),
 			.xml_hitpoint = engine_add_graphic(
-				( rect ){ XL( x ), XM( y ), 1.0f, 1.0f },
+				( rect ){ XL( x ), XM( y, h ), 1.0f, 1.0f },
 				( color ){ 1.0f, 1.0f, 0.0f, 1.0f }
 			),
 			.xmr_hitpoint = engine_add_graphic(
-				( rect ){ XR( x ), XM( y ), 1.0f, 1.0f },
+				( rect ){ XR( x ), XM( y, h ), 1.0f, 1.0f },
 				( color ){ 1.0f, 1.0f, 0.0f, 1.0f }
 			),
 			.xbl_hitpoint = engine_add_graphic(
@@ -76,11 +84,11 @@ sprite_t create_player( float x, float y )
 				( color ){ 1.0f, 1.0f, 0.0f, 1.0f }
 			),
 			.ytl_hitpoint = engine_add_graphic(
-				( rect ){ YL( x ), YT( y ), 1.0f, 1.0f },
+				( rect ){ YL( x ), YT( y, h ), 1.0f, 1.0f },
 				( color ){ 1.0f, 1.0f, 0.0f, 1.0f }
 			),
 			.ytr_hitpoint = engine_add_graphic(
-				( rect ){ YR( x ), YT( y ), 1.0f, 1.0f },
+				( rect ){ YR( x ), YT( y, h ), 1.0f, 1.0f },
 				( color ){ 1.0f, 1.0f, 0.0f, 1.0f }
 			),
 			.ybl_hitpoint = engine_add_graphic(
@@ -105,9 +113,17 @@ sprite_t create_player( float x, float y )
 
 void update_player( tile_t * map, sprite_t * player, float dt )
 {
+	if ( player->onground )
+	{
+		player->isducking = input_pressed_down();
+	}
+	player->h = player->isducking ? 16.0f : 26.0f;
+
 	// Check if running.
 	const float startspeedx = input_pressed_run() ? player->startspeedx * 2.0f : player->startspeedx;
-	const float maxspeedx = input_pressed_run() ? player->maxspeedx * 2.0f : player->maxspeedx;
+	const float maxspeedx = player->isducking
+		? player->maxspeedx / 4.0f
+		: input_pressed_run() ? player->maxspeedx * 2.0f : player->maxspeedx;
 
 
 	// Handle Y movement.
@@ -159,9 +175,6 @@ void update_player( tile_t * map, sprite_t * player, float dt )
 		player->accy = 0.0f;
 	}
 
-	// Reset on ground.
-	player->onground = 0;
-
 	// Update jump padding.
 	player->jump_padding = player->jump_padding - 1.0f * dt;
 	if ( player->jump_padding < 0.0f )
@@ -174,11 +187,11 @@ void update_player( tile_t * map, sprite_t * player, float dt )
 
 
 	// Handle X movement.
-	if ( input_pressed_left() )
+	if ( ! ( player->isducking && player->onground ) && input_pressed_left() )
 	{
 		player->accx = -startspeedx;
 	}
-	else if ( input_pressed_right() )
+	else if ( ! ( player->isducking && player->onground ) && input_pressed_right() )
 	{
 		player->accx = startspeedx;
 	}
@@ -189,20 +202,29 @@ void update_player( tile_t * map, sprite_t * player, float dt )
 
 	if ( player->accx == 0.0f )
 	{
-		player->vx /= 1.0f + player->friction * dt;
+		player->runvx /= 1.0f + player->friction * dt;
 	}
 	else
 	{
-		player->vx += player->accx * dt;
-		if ( player->vx > maxspeedx )
+		player->runvx += player->accx * dt;
+		if ( player->runvx > maxspeedx )
 		{
-			player->vx = maxspeedx;
+			player->runvx = maxspeedx;
 		}
-		else if ( player->vx < -maxspeedx )
+		else if ( player->runvx < -maxspeedx )
 		{
-			player->vx = -maxspeedx;
+			player->runvx = -maxspeedx;
 		}
 	}
+
+	if ( ! player->slidingdir != player->prevslidingdir )
+	{
+		player->vx /= 1.0f + ( player->friction / 8.0f ) * dt;
+	}
+	player->prevslidingdir = player->slidingdir;
+
+	// Reset on ground.
+	player->onground = 0;
 
 	
 	// Handle collisions.
@@ -212,10 +234,11 @@ void update_player( tile_t * map, sprite_t * player, float dt )
 	const float dti = dt / ( float )( loop );
 	for ( unsigned int i = 0; i < loop; ++i )
 	{
+		player->x += player->runvx * dti;
 		player->x += player->vx * dti;
 		player->y += player->vy * dti;
 
-		const int yt = ( int )( YT( player->y ) / 16.0f );
+		const int yt = ( int )( YT( player->y, player->h ) / 16.0f );
 		const int yb = ( int )( YB( player->y ) / 16.0f );
 		const int yl = ( int )( YL( player->x ) / 16.0f );
 		const int yr = ( int )( YR( player->x ) / 16.0f );
@@ -233,7 +256,7 @@ void update_player( tile_t * map, sprite_t * player, float dt )
 			( yr < WINDOW_WIDTH_BLOCKS && yr >= 0 && map[ yb * WINDOW_WIDTH_BLOCKS + yr ].type == TILE_SOLID ) )
 		)
 		{
-			player->y = ( float )( yb * 16 ) - 25.0f;
+			player->y = ( float )( yb * 16 );
 			player->vy = 0.0f;
 			player->accy = 0.0f;
 			player->onground = 1;
@@ -245,7 +268,7 @@ void update_player( tile_t * map, sprite_t * player, float dt )
 			( yr < WINDOW_WIDTH_BLOCKS && yr >= 0 && map[ yt * WINDOW_WIDTH_BLOCKS + yr ].type == TILE_SOLID ) )
 		)
 		{
-			player->y = ( float )( ( yt + 1 ) * 16 );
+			player->y = ( float )( ( yt + 1 ) * 16 ) + player->h;
 			if ( player->vy < 0.0f )
 			{
 				player->vy *= -0.25f;
@@ -256,9 +279,9 @@ void update_player( tile_t * map, sprite_t * player, float dt )
 
 		const unsigned int xl = ( unsigned int )( XL( player->x ) / 16.0f );
 		const unsigned int xr = ( unsigned int )( XR( player->x ) / 16.0f );
-		const unsigned int xm = ( unsigned int )( XM( player->y ) / 16.0f );
+		const unsigned int xm = ( unsigned int )( XM( player->y, player->h ) / 16.0f );
 		const unsigned int xb = ( unsigned int )( XB( player->y ) / 16.0f );
-		const unsigned int xt = ( unsigned int )( XT( player->y ) / 16.0f );
+		const unsigned int xt = ( unsigned int )( XT( player->y, player->h ) / 16.0f );
 
 		// Solid X collision.
 		if
@@ -270,9 +293,10 @@ void update_player( tile_t * map, sprite_t * player, float dt )
 		)
 		{
 			player->x = ( float )( xr * 16 ) - 15.0f;
-			if ( player->vx > 0.0f )
+			player->vx = 0.0f;
+			if ( player->runvx > 0.0f )
 			{
-				player->vx *= -0.25f;
+				player->runvx *= -0.25f;
 			}
 		}
 		else if
@@ -284,31 +308,33 @@ void update_player( tile_t * map, sprite_t * player, float dt )
 		)
 		{
 			player->x = ( float )( ( xl + 1 ) * 16 ) - 1.0f;
-			if ( player->vx < 0.0f )
+			player->vx = 0.0f;
+			if ( player->runvx > 0.0f )
 			{
-				player->vx *= -0.25f;
+				player->runvx *= -0.25f;
 			}
 		}
 	}
 
 	// Update player graphics.
 	engine_set_graphic_x( player->graphics.rect, player->x );
-	engine_set_graphic_y( player->graphics.rect, player->y );
+	engine_set_graphic_y( player->graphics.rect, player->y - player->h );
+	engine_set_graphic_h( player->graphics.rect, player->h );
 	
 	engine_set_graphic_x( player->graphics.xtr_hitpoint, XR( player->x ) );
-	engine_set_graphic_y( player->graphics.xtr_hitpoint, XT( player->y ) );
+	engine_set_graphic_y( player->graphics.xtr_hitpoint, XT( player->y, player->h ) );
 	
 	engine_set_graphic_x( player->graphics.xmr_hitpoint, XR( player->x ) );
-	engine_set_graphic_y( player->graphics.xmr_hitpoint, XM( player->y ) );
+	engine_set_graphic_y( player->graphics.xmr_hitpoint, XM( player->y, player->h ) );
 	
 	engine_set_graphic_x( player->graphics.xbr_hitpoint, XR( player->x ) );
 	engine_set_graphic_y( player->graphics.xbr_hitpoint, XB( player->y ) );
 
 	engine_set_graphic_x( player->graphics.xtl_hitpoint, XL( player->x ) );
-	engine_set_graphic_y( player->graphics.xtl_hitpoint, XT( player->y ) );
+	engine_set_graphic_y( player->graphics.xtl_hitpoint, XT( player->y, player->h ) );
 
 	engine_set_graphic_x( player->graphics.xml_hitpoint, XL( player->x ) );
-	engine_set_graphic_y( player->graphics.xml_hitpoint, XM( player->y ) );
+	engine_set_graphic_y( player->graphics.xml_hitpoint, XM( player->y, player->h ) );
 
 	engine_set_graphic_x( player->graphics.xbl_hitpoint, XL( player->x ) );
 	engine_set_graphic_y( player->graphics.xbl_hitpoint, XB( player->y ) );
@@ -320,10 +346,10 @@ void update_player( tile_t * map, sprite_t * player, float dt )
 	engine_set_graphic_y( player->graphics.ybr_hitpoint, YB( player->y ) );
 
 	engine_set_graphic_x( player->graphics.ytl_hitpoint, YL( player->x ) );
-	engine_set_graphic_y( player->graphics.ytl_hitpoint, YT( player->y ) );
+	engine_set_graphic_y( player->graphics.ytl_hitpoint, YT( player->y, player->h ) );
 
 	engine_set_graphic_x( player->graphics.ytr_hitpoint, YR( player->x ) );
-	engine_set_graphic_y( player->graphics.ytr_hitpoint, YT( player->y ) );
+	engine_set_graphic_y( player->graphics.ytr_hitpoint, YT( player->y, player->h ) );
 
 	engine_set_graphic_x( player->graphics.ybc_hitpoint, YC( player->x ) );
 	engine_set_graphic_y( player->graphics.ybc_hitpoint, YCB( player->y ) );
@@ -334,7 +360,7 @@ void update_player( tile_t * map, sprite_t * player, float dt )
 
 static unsigned int is_going_fast( const sprite_t * sprite )
 {
-	return fabs( sprite->vx ) >= sprite->maxspeedx * 1.5f;
+	return fabs( sprite->runvx ) >= sprite->maxspeedx * 1.5f;
 };
 
 static unsigned int slope_physics( const tile_t * map, sprite_t * sprite, float dti, float ypoint )
@@ -351,6 +377,8 @@ static unsigned int slope_physics( const tile_t * map, sprite_t * sprite, float 
 		const unsigned int relx = ( unsigned int )( YC( sprite->x ) ) % 16;
 		const tile_t * tile = &map[ yb * WINDOW_WIDTH_BLOCKS + yc ];
 		const unsigned int sy = ( unsigned int )( get_tile_slope_colision( tile, relx ) );
+		sprite->onground = 1;
+		sprite->jump_padding = is_going_fast( sprite ) ? 16.0f : 2.0f;
 		if ( sy >= 16 )
 		{
 			return 0;
@@ -358,11 +386,9 @@ static unsigned int slope_physics( const tile_t * map, sprite_t * sprite, float 
 		const unsigned int sh = 16 - sy;
 		if ( rely >= sy )
 		{
-			sprite->y = ( float )( yb * 16 ) + ( float )( sy ) - 25.0f;
+			sprite->y = ( float )( yb * 16 ) + ( float )( sy );
 			sprite->vy = 0.0f;
 			sprite->accy = 0.0f;
-			sprite->onground = 1;
-			sprite->jump_padding = is_going_fast( sprite ) ? 16.0f : 2.0f;
 
 			if ( tile->steepness > TILE_FLAT )
 			{
@@ -370,29 +396,46 @@ static unsigned int slope_physics( const tile_t * map, sprite_t * sprite, float 
 					: tile->steepness == TILE_MEDIUM ? 0.2f
 					: 0.1f;
 				const float fall = tile->steepness == TILE_HIGH ? 1.0f : tile->steepness == TILE_MEDIUM ? 0.1f : 0.0f;
+				const float fally = tile->steepness == TILE_HIGH ? 1.0f : tile->steepness == TILE_MEDIUM ? 0.1f : 0.0f;
+				const float slidex = tile->steepness == TILE_HIGH ? 10.0f : tile->steepness == TILE_MEDIUM ? 5.0f : 2.0f;
+				const float slidey = tile->steepness == TILE_HIGH ? 10.0f : tile->steepness == TILE_MEDIUM ? 5.0f : 2.0f;
 				if ( tile->dirx == TILE_LEFT )
 				{
-					if ( sprite->vx > 0.0f )
+					if ( sprite->runvx > 0.0f )
 					{
-						sprite->vx /= ( 1.0 + resistance * dti );
+						sprite->runvx /= ( 1.0 + resistance * dti );
 					}
-					else if ( sprite->vx < 0.0f )
+					else if ( sprite->runvx < 0.0f )
 					{
-						sprite->vx *= ( 1.0 + resistance * dti );
+						sprite->runvx *= ( 1.0 + resistance * dti );
 					}
-					sprite->vx -= fall * dti;
+					sprite->x -= fall * dti;
+					sprite->y += fally * dti;
+					if ( sprite->isducking )
+					{
+						sprite->vx -= slidex * dti;
+						sprite->vy += slidey * dti;
+						sprite->slidingdir = DIRX_LEFT;
+					}
 				}
 				else
 				{
-					if ( sprite->vx > 0.0f )
+					if ( sprite->runvx > 0.0f )
 					{
-						sprite->vx *= ( 1.0 + resistance * dti );
+						sprite->runvx *= ( 1.0 + resistance * dti );
 					}
-					else if ( sprite->vx < 0.0f )
+					else if ( sprite->runvx < 0.0f )
 					{
-						sprite->vx /= ( 1.0 + resistance * dti );
+						sprite->runvx /= ( 1.0 + resistance * dti );
 					}
-					sprite->vx += fall * dti;
+					sprite->x += fall * dti;
+					sprite->y += fally * dti;
+					if ( sprite->isducking )
+					{
+						sprite->vx += slidex * dti;
+						sprite->vy += slidey * dti;
+						sprite->slidingdir = DIRX_RIGHT;
+					}
 				}
 			}
 			return 1;

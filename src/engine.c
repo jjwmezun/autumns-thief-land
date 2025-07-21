@@ -7,6 +7,13 @@
 
 #define MAX_GRAPHICS 1000
 
+typedef struct graphic_data_t
+{
+	rect abspos;
+}
+graphic_data_t;
+
+static float convert_graphic_h( rect rect, float h );
 static float convert_graphic_x( rect rect, float x );
 static float convert_graphic_y( rect rect, float y );
 static void update_screen();
@@ -21,6 +28,7 @@ static GLuint program;
 static GLuint vao;
 static GLuint graphics_vbo;
 static graphic graphics[ MAX_GRAPHICS ];
+static graphic_data_t graphics_data[ MAX_GRAPHICS ];
 static struct
 {
 	unsigned int up : 1;
@@ -39,6 +47,7 @@ graphic_id_t engine_add_graphic( rect rect, color color )
 		return 1;
 	}
 
+	graphics_data[ graphics_count ].abspos = rect;
 	rect.w /= WINDOW_WIDTH_PIXELS_F;
 	rect.h /= WINDOW_HEIGHT_PIXELS_F;
 	rect.x = convert_graphic_x( rect, rect.x );
@@ -263,6 +272,21 @@ void engine_render()
 	SDL_GL_SwapWindow( window );
 }
 
+void engine_set_graphic_h( graphic_id_t graphic_id, float h )
+{
+	if ( graphic_id >= graphics_count )
+	{
+		fprintf( stderr, "Invalid graphic ID: %lu\n", graphic_id );
+		return;
+	}
+	graphics_data[ graphic_id ].abspos.h = h;
+	graphics[ graphic_id ].rect.h = convert_graphic_h( graphics[ graphic_id ].rect, h );
+	graphics[ graphic_id ].rect.y = convert_graphic_y
+	(
+		graphics[ graphic_id ].rect, graphics_data[ graphic_id ].abspos.y
+	);
+}
+
 void engine_set_graphic_x( graphic_id_t graphic_id, float x )
 {
 	if ( graphic_id >= graphics_count )
@@ -270,6 +294,7 @@ void engine_set_graphic_x( graphic_id_t graphic_id, float x )
 		fprintf( stderr, "Invalid graphic ID: %lu\n", graphic_id );
 		return;
 	}
+	graphics_data[ graphic_id ].abspos.x = x;
 	graphics[ graphic_id ].rect.x = convert_graphic_x( graphics[ graphic_id ].rect, x );
 }
 
@@ -280,6 +305,7 @@ void engine_set_graphic_y( graphic_id_t graphic_id, float y )
 		fprintf( stderr, "Invalid graphic ID: %lu\n", graphic_id );
 		return;
 	}
+	graphics_data[ graphic_id ].abspos.y = y;
 	graphics[ graphic_id ].rect.y = convert_graphic_y( graphics[ graphic_id ].rect, y );
 }
 
@@ -311,6 +337,11 @@ unsigned int input_pressed_run()
 unsigned int input_pressed_up()
 {
 	return pressed.up;
+}
+
+static float convert_graphic_h( rect rect, float h )
+{
+	return h /= WINDOW_HEIGHT_PIXELS_F;
 }
 
 static float convert_graphic_x( rect rect, float x )

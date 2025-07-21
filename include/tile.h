@@ -1,14 +1,15 @@
 #ifndef TILE_H
 #define TILE_H
 
+#include "dir.h"
 #include <inttypes.h>
 
 #define TILE_EMPTY 0
 #define TILE_SOLID 1
 #define TILE_SLOPE 2
 
-#define TILE_LEFT 0
-#define TILE_RIGHT 1
+#define TILE_LEFT DIRX_LEFT - 1
+#define TILE_RIGHT DIRX_RIGHT - 1
 
 #define TILE_UP 0
 #define TILE_DOWN 1

@@ -5,10 +5,14 @@
 #include "tile.h"
 
 typedef struct sprite_t {
+	float w;
+	float h;
 	float x;
 	float y;
 	float vx;
 	float vy;
+	float runvx;
+	float runvy;
 	float accx;
 	float accy;
 	float startspeedx;
@@ -22,9 +26,12 @@ typedef struct sprite_t {
 	float jumpacc;
 	float maxjump;
 	float jump_padding;
-	unsigned int isjumping;
-	unsigned int onground;
-	unsigned int jumplock;
+	unsigned int isjumping : 1;
+	unsigned int onground : 1;
+	unsigned int jumplock : 1;
+	unsigned int isducking : 1;
+	unsigned int slidingdir : 2;
+	unsigned int prevslidingdir : 2;
 	struct
 	{
 		graphic_id_t rect;
