@@ -4,6 +4,14 @@
 #include "engine.h"
 #include "tile.h"
 
+#define SLIDE_NONE 0
+#define SLIDE_DUCK 1
+#define SLIDE_LEFT 2
+#define SLIDE_RIGHT 3
+
+#define SPRITE_STATE_NORMAL 0
+#define SPRITE_STATE_SLIDING 1
+
 typedef struct sprite_t {
 	float w;
 	float h;
@@ -11,7 +19,7 @@ typedef struct sprite_t {
 	float y;
 	float vx;
 	float vy;
-	float runvx;
+	float walkmaxspeedx;
 	float runvy;
 	float accx;
 	float accy;
@@ -26,12 +34,15 @@ typedef struct sprite_t {
 	float jumpacc;
 	float maxjump;
 	float jump_padding;
+	float maxslidespeedx;
+	float maxslidespeedy;
 	unsigned int isjumping : 1;
 	unsigned int onground : 1;
 	unsigned int jumplock : 1;
-	unsigned int isducking : 1;
-	unsigned int slidingdir : 2;
+	unsigned int slidestate : 2;
 	unsigned int prevslidingdir : 2;
+	unsigned int state : 1;
+	unsigned int dirx : 1;
 	struct
 	{
 		graphic_id_t rect;

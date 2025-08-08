@@ -22,6 +22,7 @@ tile_t * create_map()
 		map[ ( WINDOW_HEIGHT_BLOCKS - 2 ) * WINDOW_WIDTH_BLOCKS + x ] = create_solid_tile();
 	}
 
+	/*
 	map[ ( WINDOW_HEIGHT_BLOCKS - 4 ) * WINDOW_WIDTH_BLOCKS + 15 ] = create_solid_tile();
 	map[ ( WINDOW_HEIGHT_BLOCKS - 3 ) * WINDOW_WIDTH_BLOCKS + 15 ] = create_solid_tile();
 	map[ ( WINDOW_HEIGHT_BLOCKS - 3 ) * WINDOW_WIDTH_BLOCKS + 16 ] = create_solid_tile();
@@ -110,7 +111,7 @@ tile_t * create_map()
 		15
 	);
 
-	map[ ( WINDOW_HEIGHT_BLOCKS - 3 ) * WINDOW_WIDTH_BLOCKS + 20 ] = create_sloped_tile(
+	map[ ( WINDOW_HEIGHT_BLOCKS - 3 ) * WINDOW_WIDTH_BLOCKS + 19 ] = create_sloped_tile(
 		TILE_LEFT,
 		TILE_MEDIUM,
 		15,
@@ -131,7 +132,7 @@ tile_t * create_map()
 		0
 	);
 
-	map[ ( WINDOW_HEIGHT_BLOCKS - 3 ) * WINDOW_WIDTH_BLOCKS + 21 ] = create_sloped_tile(
+	map[ ( WINDOW_HEIGHT_BLOCKS - 3 ) * WINDOW_WIDTH_BLOCKS + 20 ] = create_sloped_tile(
 		TILE_RIGHT,
 		TILE_MEDIUM,
 		0,
@@ -281,6 +282,7 @@ tile_t * create_map()
 	map[ ( WINDOW_HEIGHT_BLOCKS - 3 ) * WINDOW_WIDTH_BLOCKS + 8 ] = create_sloped_tile(
 		TILE_RIGHT,
 		TILE_LOW,
+
 		8,
 		8,
 		9,
@@ -341,27 +343,6 @@ tile_t * create_map()
 		0
 	);
 
-	map[ ( WINDOW_HEIGHT_BLOCKS - 3 ) * WINDOW_WIDTH_BLOCKS + 28 ] = create_sloped_tile(
-		TILE_LEFT,
-		TILE_FLAT,
-		0,
-		0,
-		0,
-		0,
-		0,
-		0,
-		0,
-		0,
-		0,
-		0,
-		0,
-		0,
-		0,
-		0,
-		0,
-		0
-	);
-
 	map[ ( WINDOW_HEIGHT_BLOCKS - 4 ) * WINDOW_WIDTH_BLOCKS + 27 ] = create_sloped_tile(
 		TILE_LEFT,
 		TILE_FLAT,
@@ -383,6 +364,27 @@ tile_t * create_map()
 		16
 	);
 
+	map[ ( WINDOW_HEIGHT_BLOCKS - 2 ) * WINDOW_WIDTH_BLOCKS + 27 ] = create_sloped_tile(
+		TILE_LEFT,
+		TILE_MEDIUM,
+		0,
+		0,
+		0,
+		0,
+		0,
+		0,
+		0,
+		0,
+		0,
+		0,
+		0,
+		0,
+		0,
+		0,
+		0,
+		0
+	);
+
 	map[ ( WINDOW_HEIGHT_BLOCKS - 4 ) * WINDOW_WIDTH_BLOCKS + 28 ] = create_sloped_tile(
 		TILE_LEFT,
 		TILE_MEDIUM,
@@ -401,27 +403,6 @@ tile_t * create_map()
 		3,
 		2,
 		1,
-		0
-	);
-
-	map[ ( WINDOW_HEIGHT_BLOCKS - 4 ) * WINDOW_WIDTH_BLOCKS + 29 ] = create_sloped_tile(
-		TILE_LEFT,
-		TILE_FLAT,
-		0,
-		0,
-		0,
-		0,
-		0,
-		0,
-		0,
-		0,
-		0,
-		0,
-		0,
-		0,
-		0,
-		0,
-		0,
 		0
 	);
 
@@ -446,6 +427,27 @@ tile_t * create_map()
 		16
 	);
 
+	map[ ( WINDOW_HEIGHT_BLOCKS - 3 ) * WINDOW_WIDTH_BLOCKS + 28 ] = create_sloped_tile(
+		TILE_LEFT,
+		TILE_MEDIUM,
+		0,
+		0,
+		0,
+		0,
+		0,
+		0,
+		0,
+		0,
+		0,
+		0,
+		0,
+		0,
+		0,
+		0,
+		0,
+		0
+	);
+
 	map[ ( WINDOW_HEIGHT_BLOCKS - 5 ) * WINDOW_WIDTH_BLOCKS + 29 ] = create_sloped_tile(
 		TILE_LEFT,
 		TILE_MEDIUM,
@@ -464,27 +466,6 @@ tile_t * create_map()
 		3,
 		2,
 		1,
-		0
-	);
-
-	map[ ( WINDOW_HEIGHT_BLOCKS - 5 ) * WINDOW_WIDTH_BLOCKS + 30 ] = create_sloped_tile(
-		TILE_LEFT,
-		TILE_FLAT,
-		0,
-		0,
-		0,
-		0,
-		0,
-		0,
-		0,
-		0,
-		0,
-		0,
-		0,
-		0,
-		0,
-		0,
-		0,
 		0
 	);
 
@@ -509,6 +490,27 @@ tile_t * create_map()
 		16
 	);
 
+	map[ ( WINDOW_HEIGHT_BLOCKS - 4 ) * WINDOW_WIDTH_BLOCKS + 29 ] = create_sloped_tile(
+		TILE_LEFT,
+		TILE_MEDIUM,
+		0,
+		0,
+		0,
+		0,
+		0,
+		0,
+		0,
+		0,
+		0,
+		0,
+		0,
+		0,
+		0,
+		0,
+		0,
+		0
+	);
+
 	map[ ( WINDOW_HEIGHT_BLOCKS - 6 ) * WINDOW_WIDTH_BLOCKS + 30 ] = create_sloped_tile(
 		TILE_LEFT,
 		TILE_MEDIUM,
@@ -530,9 +532,9 @@ tile_t * create_map()
 		0
 	);
 
-	map[ ( WINDOW_HEIGHT_BLOCKS - 6 ) * WINDOW_WIDTH_BLOCKS + 31 ] = create_sloped_tile(
+	map[ ( WINDOW_HEIGHT_BLOCKS - 5 ) * WINDOW_WIDTH_BLOCKS + 30 ] = create_sloped_tile(
 		TILE_LEFT,
-		TILE_FLAT,
+		TILE_MEDIUM,
 		0,
 		0,
 		0,
@@ -555,6 +557,69 @@ tile_t * create_map()
 	{
 		map[ 8 * WINDOW_WIDTH_BLOCKS + i ] = create_solid_tile();
 	}
+
+	map[ 7 * WINDOW_WIDTH_BLOCKS + 24 ] = create_sloped_tile(
+		TILE_RIGHT,
+		TILE_MEDIUM,
+		0,
+		1,
+		2,
+		3,
+		4,
+		5,
+		6,
+		7,
+		8,
+		9,
+		10,
+		11,
+		12,
+		13,
+		14,
+		15
+	);
+
+	map[ 6 * WINDOW_WIDTH_BLOCKS + 23 ] = create_sloped_tile(
+		TILE_RIGHT,
+		TILE_MEDIUM,
+		0,
+		1,
+		2,
+		3,
+		4,
+		5,
+		6,
+		7,
+		8,
+		9,
+		10,
+		11,
+		12,
+		13,
+		14,
+		15
+	);
+
+	map[ 7 * WINDOW_WIDTH_BLOCKS + 23 ] = create_sloped_tile(
+		TILE_RIGHT,
+		TILE_MEDIUM,
+		0,
+		0,
+		0,
+		0,
+		0,
+		0,
+		0,
+		0,
+		0,
+		0,
+		0,
+		0,
+		0,
+		0,
+		0,
+		0
+	);
 
 	map[ 7 * WINDOW_WIDTH_BLOCKS + 8 ] = create_sloped_tile(
 		TILE_RIGHT,
@@ -848,7 +913,164 @@ tile_t * create_map()
 		14,
 		15,
 		15
+	);*/
+
+	for ( size_t i = 0; i < 8; ++i )
+	{
+		const unsigned int x = i + 3;
+		const unsigned int y = 10 - i;
+		map[ ( WINDOW_HEIGHT_BLOCKS - y ) * WINDOW_WIDTH_BLOCKS + x ] = create_sloped_tile(
+			TILE_RIGHT,
+			TILE_FLAT,
+			0,
+			0,
+			0,
+			0,
+			0,
+			0,
+			0,
+			0,
+			0,
+			0,
+			0,
+			0,
+			0,
+			0,
+			0,
+			0
+		);
+
+		map[ ( WINDOW_HEIGHT_BLOCKS - y - 1 ) * WINDOW_WIDTH_BLOCKS + x ] = create_sloped_tile(
+			TILE_RIGHT,
+			TILE_MEDIUM,
+			0,
+			1,
+			2,
+			3,
+			4,
+			5,
+			6,
+			7,
+			8,
+			9,
+			10,
+			11,
+			12,
+			13,
+			14,
+			15
+		);
+	}
+
+	map[ ( WINDOW_HEIGHT_BLOCKS - 3 ) * WINDOW_WIDTH_BLOCKS + 11 ] = create_sloped_tile(
+		TILE_RIGHT,
+		TILE_FLAT,
+		0,
+		0,
+		0,
+		0,
+		0,
+		0,
+		0,
+		0,
+		0,
+		0,
+		0,
+		0,
+		0,
+		0,
+		0,
+		0
 	);
+
+	map[ ( WINDOW_HEIGHT_BLOCKS - 11 ) * WINDOW_WIDTH_BLOCKS + 2 ] = create_sloped_tile(
+		TILE_RIGHT,
+		TILE_FLAT,
+		0,
+		0,
+		0,
+		0,
+		0,
+		0,
+		0,
+		0,
+		0,
+		0,
+		0,
+		0,
+		0,
+		0,
+		0,
+		0
+	);
+
+	map[ ( WINDOW_HEIGHT_BLOCKS - 11 ) * WINDOW_WIDTH_BLOCKS + 1 ] = create_solid_tile();
+
+	map[ ( WINDOW_HEIGHT_BLOCKS - 3 ) * WINDOW_WIDTH_BLOCKS + 12 ] = create_sloped_tile(
+		TILE_LEFT,
+		TILE_FLAT,
+		0,
+		0,
+		0,
+		0,
+		0,
+		0,
+		0,
+		0,
+		0,
+		0,
+		0,
+		0,
+		0,
+		0,
+		0,
+		0
+	);
+
+	map[ ( WINDOW_HEIGHT_BLOCKS - 4 ) * WINDOW_WIDTH_BLOCKS + 12 ] = create_sloped_tile(
+		TILE_LEFT,
+		TILE_MEDIUM,
+		15,
+		14,
+		13,
+		12,
+		11,
+		10,
+		9,
+		8,
+		7,
+		6,
+		5,
+		4,
+		3,
+		2,
+		1,
+		0
+	);
+
+	map[ ( WINDOW_HEIGHT_BLOCKS - 4 ) * WINDOW_WIDTH_BLOCKS + 13 ] = create_sloped_tile(
+		TILE_LEFT,
+		TILE_FLAT,
+		0,
+		0,
+		0,
+		0,
+		0,
+		0,
+		0,
+		0,
+		0,
+		0,
+		0,
+		0,
+		0,
+		0,
+		0,
+		0
+	);
+
+	map[ ( WINDOW_HEIGHT_BLOCKS - 4 ) * WINDOW_WIDTH_BLOCKS + 14 ] = create_solid_tile();
+	map[ ( WINDOW_HEIGHT_BLOCKS - 3 ) * WINDOW_WIDTH_BLOCKS + 14 ] = create_solid_tile();
 
 	// Add solid block graphics.
 	for ( size_t y = 0; y < WINDOW_HEIGHT_BLOCKS; ++y )
