@@ -48,19 +48,18 @@ int main()
 
 	while ( running )
 	{
-		const float ticks = engine_get_ticks();
-		const float dt = ( ticks - prev_ticks ) * 60.0f;
-		prev_ticks = ticks;
-		if ( dt > maxdt )
-		{
-			maxdt = dt;
-		}
-
 		running = engine_loop();
 
-        update_player( map, &player, dt );
+        update_player( map, &player );
 
 		engine_render();
+
+		const float ticks = engine_get_ticks();
+		if ( ticks - prev_ticks < 16.0f )
+		{
+			engine_sleep( 16 - ( ticks - prev_ticks ) );
+		}
+		prev_ticks = engine_get_ticks();
 	}
 
 	// Test lowest FPS.
