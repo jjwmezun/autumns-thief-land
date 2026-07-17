@@ -35,7 +35,6 @@ sprite_t create_player( float x, float y )
 		.vx = 0.0f,
 		.vy = 0.0f,
 		.walkmaxspeedx = 2.0f,
-		.runvy = 0.0f,
 		.accx = 0.0f,
 		.accy = 0.0f,
 		.maxspeedx = 2.0f,
@@ -295,16 +294,17 @@ void update_player( tile_t * map, sprite_t * player )
 
 			player->x += player->vx;
 
-			player->runvy += player->accy;
-			if ( player->runvy > player->maxslidespeedy )
+
+			player->vy += player->accy;
+			if ( player->vy > player->maxslidespeedy )
 			{
-				player->runvy = player->maxslidespeedy;
+				player->vy = player->maxslidespeedy;
 			}
-			else if ( player->runvy < -player->maxslidespeedy )
+			else if ( player->vy < -player->maxslidespeedy )
 			{
-				player->runvy = -player->maxslidespeedy;
+				player->vy = -player->maxslidespeedy;
 			}
-			player->y += player->runvy;
+			player->y += player->vy;
 
 			if ( !player->jumplock && input_pressed_jump() )
 			{
@@ -324,36 +324,47 @@ void update_player( tile_t * map, sprite_t * player )
 				const float ypoint = YB( player->y ) + i;
 				const int yb = ( int )( ypoint / 16.0f );
 				const int yc = ( int )( YC( player->x ) / 16.0f );
+				i += 1.0f;
+
 				if (
-					yb < WINDOW_HEIGHT_BLOCKS && yb >= 0 &&
-					( yc < WINDOW_WIDTH_BLOCKS && yc >= 0 &&
-						( is_tile_slope( &map[ yb * WINDOW_WIDTH_BLOCKS + yc ] ) ) )
+					!(
+						yb < WINDOW_HEIGHT_BLOCKS && yb >= 0 &&
+						yc < WINDOW_WIDTH_BLOCKS && yc >= 0
+					)
 				)
 				{
-					const unsigned int rely = ( unsigned int )( ypoint ) - yb * 16;
-					const unsigned int relx = ( unsigned int )( YC( player->x ) ) % 16;
-					const tile_t * tile = &map[ yb * WINDOW_WIDTH_BLOCKS + yc ];
-					const unsigned int sy = ( unsigned int )( get_tile_slope_colision( tile, relx ) );
-					player->onground = 1;
-					if ( sy < 16 )
-					{
-						onslope = 1;
-						const unsigned int sh = 16 - sy;
-						if ( rely >= sy )
-						{
-							player->y = ( float )( yb * 16 ) + ( float )( sy );
-							player->vy = 0.0f;
-							player->accy = 0.0f;
-						}
-						break;
-					}
+					continue;
 				}
-				i += 1.0f;
+
+				const tile_t * tile = &map[ yb * WINDOW_WIDTH_BLOCKS + yc ];
+
+				if ( !is_tile_slope( tile ) )
+				{
+					continue;
+				}
+
+				const unsigned int rely = ( unsigned int )( ypoint ) - yb * 16;
+				const unsigned int relx = ( unsigned int )( YC( player->x ) ) % 16;
+				const unsigned int sy = ( unsigned int )( get_tile_slope_colision( tile, relx ) );
+				player->onground = 1;
+				if ( sy < 16 )
+				{
+					onslope = 1;
+					if ( rely >= sy )
+					{
+						player->y = ( float )( yb * 16 ) + ( float )( sy );
+						//player->vy = 0.0f;
+						//player->accy = 0.0f;
+					}
+					break;
+				}
 			}
 
 			if ( !onslope )
 			{
 				player->accx = 0.0f;
+				player->accy = 0.0f;
+				player->vy = 0.0f;
 				player->prevslidingdir = player->dirx;
 				player->state = SPRITE_STATE_SLIDING_END;
 

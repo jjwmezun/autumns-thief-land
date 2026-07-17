@@ -22,7 +22,6 @@ typedef struct sprite_t {
 	float vx;
 	float vy;
 	float walkmaxspeedx;
-	float runvy;
 	float accx;
 	float accy;
 	float startspeedx;
