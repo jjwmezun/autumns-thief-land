@@ -30,6 +30,8 @@ int main()
 	// Init player sprite.
 	sprite_t player = create_player( 16.0f, 11.0f );
 
+	add_priority_map_graphics( map );
+
 	// Add gridline graphics.
 	for ( size_t i = 0; i < WINDOW_WIDTH_BLOCKS; ++i )
 	{

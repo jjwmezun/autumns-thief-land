@@ -87,6 +87,11 @@ tile_t create_climb_solid_top_tile()
 	return ( tile_t ){ .type = TILE_NORMAL, .data = { .normal = { .subtype = TILE_CLIMB_SOLID_TOP } } };
 };
 
+void make_tile_underwater( tile_t * tile )
+{
+	tile->underwater = 1;
+};
+
 unsigned int is_tile_solid( const tile_t * tile )
 {
 	return tile->type == TILE_NORMAL && tile->data.normal.subtype == TILE_SOLID;
@@ -125,4 +130,9 @@ unsigned int is_tile_solid_top( const tile_t * tile )
 unsigned int is_tile_climb_solid_top( const tile_t * tile )
 {
 	return tile->type == TILE_NORMAL && tile->data.normal.subtype == TILE_CLIMB_SOLID_TOP;
+};
+
+unsigned int is_tile_underwater( const tile_t * tile )
+{
+	return tile->underwater;
 };

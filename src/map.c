@@ -1117,6 +1117,14 @@ tile_t * create_map()
 	map[ 9 * WINDOW_WIDTH_BLOCKS + 29 ] = create_climb_tile();
 	map[ 3 * WINDOW_WIDTH_BLOCKS + 26 ] = create_climb_solid_top_tile();
 
+	for ( size_t y = 5; y < WINDOW_HEIGHT_BLOCKS; ++y )
+	{
+		for ( size_t x = 0; x < WINDOW_WIDTH_BLOCKS; ++x )
+		{
+			make_tile_underwater( &map[ y * WINDOW_WIDTH_BLOCKS + x ] );
+		}
+	}
+
 	// Add solid block graphics.
 	for ( size_t y = 0; y < WINDOW_HEIGHT_BLOCKS; ++y )
 	{
@@ -1202,4 +1210,23 @@ tile_t * create_map()
 	}
 
 	return map;
+}
+
+void add_priority_map_graphics( const tile_t * map )
+{
+	// Add solid block graphics.
+	for ( size_t y = 0; y < WINDOW_HEIGHT_BLOCKS; ++y )
+	{
+		for ( size_t x = 0; x < WINDOW_WIDTH_BLOCKS; ++x )
+		{
+			const tile_t * tile = &map[ y * WINDOW_WIDTH_BLOCKS + x ];
+			if ( is_tile_underwater( tile ) )
+			{
+				engine_add_graphic(
+					( rect ){ 16.0f * ( float )( x ), 16.0f * ( float )( y ), 16.0f, 16.0f },
+					( color ){ 0.0f, 0.5f, 1.0f, 0.5f }
+				);
+			}
+		}
+	}
 }

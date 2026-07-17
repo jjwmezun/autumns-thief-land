@@ -5,7 +5,7 @@
 #include <GL/glew.h>
 #include <SDL_opengl.h>
 
-#define MAX_GRAPHICS 1000
+#define MAX_GRAPHICS 2000
 
 typedef struct graphic_data_t
 {

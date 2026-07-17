@@ -131,22 +131,36 @@ void update_player( tile_t * map, sprite_t * player )
 				{
 					player->slidestate = SLIDE_NONE;
 				}
-				player->maxspeedx = player->slidestate == SLIDE_DUCK
-					? player->walkmaxspeedx / 4.0f
-					: ( input_pressed_run() ? player->walkmaxspeedx * 2.0f : player->walkmaxspeedx );
 			}
 
+			player->maxspeedx = player->isswimming
+				? ( player->slidestate == SLIDE_DUCK
+					? 0.0f
+					: ( input_pressed_run() ? player->walkmaxspeedx : player->walkmaxspeedx / 2.0f ) )
+				: ( player->slidestate == SLIDE_DUCK
+					? player->walkmaxspeedx / 4.0f
+					: ( input_pressed_run() ? player->walkmaxspeedx * 2.0f : player->walkmaxspeedx ) );
+
 			// Check if running.
-			const float startspeedx = input_pressed_run() ? player->startspeedx * 2.0f : player->startspeedx;
+			const float startspeedx = player->isswimming
+				? input_pressed_run() ? player->startspeedx : player->startspeedx / 2.0f
+				: input_pressed_run() ? player->startspeedx * 2.0f : player->startspeedx;
 
 
 			// Handle Y movement.
 			// Falling & Jumping
 			const unsigned int going_fast = is_going_fast( player );
-			const float startgravity = input_pressed_jump() ? player->startgravity / 1.5f : player->startgravity;
-			const float maxgravity = going_fast ? player->maxgravity * 1.1f : player->maxgravity;
-			const float maxjump = going_fast ? player->maxjump * 1.1f : player->maxjump;
-			const unsigned int can_start_jump = player->jump_padding > 0.0f &&
+			const float startgravity = player->isswimming
+				? ( input_pressed_jump() ? player->startgravity / 6.0f : player->startgravity / 4.0f )
+				: ( input_pressed_jump() ? player->startgravity / 1.5f : player->startgravity );
+			const float maxgravity = player->isswimming
+				? ( input_pressed_jump() ? player->maxgravity / 3.0f : player->maxgravity / 2.0f )
+				: ( input_pressed_jump() ? player->maxgravity / 1.5f : player->maxgravity );
+			const float maxjump = player->isswimming
+				? player->maxjump / 3.0f
+				: going_fast ? player->maxjump * 1.1f : player->maxjump;
+			const unsigned int can_start_jump = 
+				( player->isswimming || player->jump_padding > 0.0f ) &&
 				!player->jumplock &&
 				input_pressed_jump();
 
@@ -241,11 +255,13 @@ void update_player( tile_t * map, sprite_t * player )
 			player->y += player->vy;
 
 			
+			const unsigned int prev_swimming = player->isswimming;
 			general_player_collision( map, player );
 
 			const unsigned int xl = ( unsigned int )( XL( player->x ) / 16.0f );
 			const unsigned int xr = ( unsigned int )( XR( player->x ) / 16.0f );
 			const unsigned int xm = ( unsigned int )( XM( player->y, player->h ) / 16.0f );
+			const unsigned int xb = ( unsigned int )( XB( player->y ) / 16.0f );
 			const unsigned int xt = ( unsigned int )( XT( player->y, player->h ) / 16.0f );
 
 			// Climbable collision.
@@ -277,32 +293,55 @@ void update_player( tile_t * map, sprite_t * player )
 				}
 			}
 
+			// Handle jumping out o’ water.
+			if
+			(
+				xl < WINDOW_WIDTH_BLOCKS && xl >= 0 &&
+				xr < WINDOW_WIDTH_BLOCKS && xr >= 0 &&
+				prev_swimming &&
+				!player->isswimming &&
+				player->vy < 0.0f &&
+				(
+					( xb < WINDOW_HEIGHT_BLOCKS && xb >= 0 && is_tile_underwater( &map[ xb * WINDOW_WIDTH_BLOCKS + xl ] ) ) ||
+					( xb < WINDOW_HEIGHT_BLOCKS && xb >= 0 && is_tile_underwater( &map[ xb * WINDOW_WIDTH_BLOCKS + xr ] ) )
+				)
+			)
+			{
+				player->isjumping = 1;
+				player->vy = -player->startjump;
+				player->accy = -player->jumpacc;
+			}
+
 			player->h = player->slidestate ? 16.0f : 26.0f;
 		}
 		break;
 		case ( SPRITE_STATE_SLIDING ):
 		{
-			player->vx += player->accx;
-			if ( player->vx > player->maxslidespeedx )
+			const float accx = ( player->isswimming ? 0.5f * player->accx : player->accx );
+			const float maxslidespeedx = ( player->isswimming ? 0.5f * player->maxslidespeedx : player->maxslidespeedx );
+			player->vx += accx;
+			if ( player->vx > maxslidespeedx )
 			{
-				player->vx = player->maxslidespeedx;
+				player->vx = maxslidespeedx;
 			}
-			else if ( player->vx < -player->maxslidespeedx )
+			else if ( player->vx < -maxslidespeedx )
 			{
-				player->vx = -player->maxslidespeedx;
+				player->vx = -maxslidespeedx;
 			}
 
 			player->x += player->vx;
 
 
-			player->vy += player->accy;
-			if ( player->vy > player->maxslidespeedy )
+			const float accy = ( player->isswimming ? 0.5f * player->accy : player->accy );
+			const float maxslidespeedy = ( player->isswimming ? 0.5f * player->maxslidespeedy : player->maxslidespeedy );
+			player->vy += accy;
+			if ( player->vy > maxslidespeedy )
 			{
-				player->vy = player->maxslidespeedy;
+				player->vy = maxslidespeedy;
 			}
-			else if ( player->vy < -player->maxslidespeedy )
+			else if ( player->vy < -maxslidespeedy )
 			{
-				player->vy = -player->maxslidespeedy;
+				player->vy = -maxslidespeedy;
 			}
 			player->y += player->vy;
 
@@ -414,7 +453,7 @@ void update_player( tile_t * map, sprite_t * player )
 		break;
 		case ( SPRITE_STATE_CLIMBING ):
 		{
-			#define CLIMB_MAX_SPEED 0.75f
+			const float climb_max_speed = player->isswimming ? 0.5f * 0.75f : 0.75f;
 
 			if ( input_pressed_jump() )
 			{
@@ -441,13 +480,13 @@ void update_player( tile_t * map, sprite_t * player )
 			}
 
 			player->vy += player->accy;
-			if ( player->vy > CLIMB_MAX_SPEED )
+			if ( player->vy > climb_max_speed )
 			{
-				player->vy = CLIMB_MAX_SPEED;
+				player->vy = climb_max_speed;
 			}
-			else if ( player->vy < -CLIMB_MAX_SPEED )
+			else if ( player->vy < -climb_max_speed )
 			{
-				player->vy = -CLIMB_MAX_SPEED;
+				player->vy = -climb_max_speed;
 			}
 
 			player->y += player->vy;
@@ -467,13 +506,13 @@ void update_player( tile_t * map, sprite_t * player )
 			}
 
 			player->vx += player->accx;
-			if ( player->vx > CLIMB_MAX_SPEED )
+			if ( player->vx > climb_max_speed )
 			{
-				player->vx = CLIMB_MAX_SPEED;
+				player->vx = climb_max_speed;
 			}
-			else if ( player->vx < -CLIMB_MAX_SPEED )
+			else if ( player->vx < -climb_max_speed )
 			{
-				player->vx = -CLIMB_MAX_SPEED;
+				player->vx = -climb_max_speed;
 			}
 
 			player->x += player->vx;
@@ -635,9 +674,17 @@ static unsigned int slope_physics( const tile_t * map, sprite_t * sprite, float 
 				}
 
 				static const float RESISTANCES[ 4 ] = { 0.0f, 0.1f, 0.2f, 0.3f };
-				const float resistance = RESISTANCES[ get_tile_slope_steepness( tile ) ];
-				const float fall = get_tile_slope_steepness( tile ) == TILE_HIGH ? 1.25f : get_tile_slope_steepness( tile ) == TILE_MEDIUM ? 0.1f : 0.0f;
-				const float fally = get_tile_slope_steepness( tile ) == TILE_HIGH ? 1.25f : get_tile_slope_steepness( tile ) == TILE_MEDIUM ? 0.1f : 0.0f;
+				float resistance = RESISTANCES[ get_tile_slope_steepness( tile ) ];
+				float fall = get_tile_slope_steepness( tile ) == TILE_HIGH ? 1.25f : get_tile_slope_steepness( tile ) == TILE_MEDIUM ? 0.1f : 0.0f;
+				float fally = get_tile_slope_steepness( tile ) == TILE_HIGH ? 1.25f : get_tile_slope_steepness( tile ) == TILE_MEDIUM ? 0.1f : 0.0f;
+
+				if ( sprite->isswimming )
+				{
+					resistance *= 2.0f;
+					fall *= 0.5f;
+					fally *= 0.5f;
+				}
+
 				if ( get_tile_slope_dirx( tile ) == TILE_LEFT )
 				{
 					if ( sprite->vx > 0.0f )
@@ -825,5 +872,26 @@ static void general_player_collision( const tile_t * map, sprite_t * player )
 				player->isjumping = 0;
 			}
 		}
+	}
+
+	// Swimming collision.
+	player->isswimming = 0;
+	if
+	(
+		xr < WINDOW_WIDTH_BLOCKS && xr >= 0 &&
+		( ( xt < WINDOW_HEIGHT_BLOCKS && xt >= 0 && is_tile_underwater( &map[ xt * WINDOW_WIDTH_BLOCKS + xr ] ) ) ||
+		( xm < WINDOW_HEIGHT_BLOCKS && xm >= 0 && is_tile_underwater( &map[ xm * WINDOW_WIDTH_BLOCKS + xr ] ) ) )
+	)
+	{
+		player->isswimming = 1;
+	}
+	else if
+	(
+		xl < WINDOW_WIDTH_BLOCKS && xl >= 0 &&
+		( ( xt < WINDOW_HEIGHT_BLOCKS && xt >= 0 && is_tile_underwater( &map[ xt * WINDOW_WIDTH_BLOCKS + xl ] ) ) ||
+		( xm < WINDOW_HEIGHT_BLOCKS && xm >= 0 && is_tile_underwater( &map[ xm * WINDOW_WIDTH_BLOCKS + xl ] ) ) )
+	)
+	{
+		player->isswimming = 1;
 	}
 }

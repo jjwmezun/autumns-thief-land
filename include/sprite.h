@@ -38,6 +38,7 @@ typedef struct sprite_t {
 	float maxslidespeedx;
 	float maxslidespeedy;
 	unsigned int isjumping : 1;
+	unsigned int isswimming : 1;
 	unsigned int onground : 1;
 	unsigned int jumplock : 1;
 	unsigned int slidestate : 2;
