@@ -1115,6 +1115,7 @@ tile_t * create_map()
 	map[ 11 * WINDOW_WIDTH_BLOCKS + 30 ] = create_solid_top_tile();
 	map[ 10 * WINDOW_WIDTH_BLOCKS + 29 ] = create_climb_tile();
 	map[ 9 * WINDOW_WIDTH_BLOCKS + 29 ] = create_climb_tile();
+	map[ 3 * WINDOW_WIDTH_BLOCKS + 26 ] = create_climb_solid_top_tile();
 
 	// Add solid block graphics.
 	for ( size_t y = 0; y < WINDOW_HEIGHT_BLOCKS; ++y )
@@ -1147,6 +1148,29 @@ tile_t * create_map()
 						( color ){ 0.0f, 0.0f, 0.0f, 1.0f }
 					);
 				}
+			}
+			else if ( is_tile_climb_solid_top( tile ) )
+			{
+				engine_add_graphic(
+					( rect ){ 16.0f * ( float )( x ) + 2.0f, 16.0f * ( float )( y ), 4.0f, 16.0f },
+					( color ){ 0.0f, 0.0f, 0.0f, 1.0f }
+				);
+				engine_add_graphic(
+					( rect ){ 16.0f * ( float )( x ) + 10.0f, 16.0f * ( float )( y ), 4.0f, 16.0f },
+					( color ){ 0.0f, 0.0f, 0.0f, 1.0f }
+				);
+				engine_add_graphic(
+					( rect ){ 16.0f * ( float )( x ) + 2.0f, 16.0f * ( float )( y ) + 2.0f, 12.0f, 4.0f },
+					( color ){ 0.0f, 0.0f, 0.0f, 1.0f }
+				);
+				engine_add_graphic(
+					( rect ){ 16.0f * ( float )( x ) + 2.0f, 16.0f * ( float )( y ) + 10.0f, 12.0f, 4.0f },
+					( color ){ 0.0f, 0.0f, 0.0f, 1.0f }
+				);
+				engine_add_graphic(
+					( rect ){ 16.0f * ( float )( x ), 16.0f * ( float )( y ), 16.0f, 4.0f },
+					( color ){ 0.0f, 0.0f, 0.0f, 1.0f }
+				);
 			}
 			else if ( is_tile_climbable( tile ) )
 			{
