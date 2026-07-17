@@ -718,8 +718,19 @@ static void general_player_collision( const tile_t * map, sprite_t * player )
 	if (
 		onslope == 0 &&
 		yb < WINDOW_HEIGHT_BLOCKS && yb >= 0 &&
-		( ( yl < WINDOW_WIDTH_BLOCKS && yl >= 0 && is_tile_solid( &map[ yb * WINDOW_WIDTH_BLOCKS + yl ] ) ) ||
-		( yr < WINDOW_WIDTH_BLOCKS && yr >= 0 && is_tile_solid( &map[ yb * WINDOW_WIDTH_BLOCKS + yr ] ) ) )
+		(
+			( yl < WINDOW_WIDTH_BLOCKS && yl >= 0 && is_tile_solid( &map[ yb * WINDOW_WIDTH_BLOCKS + yl ] ) ) ||
+			( yr < WINDOW_WIDTH_BLOCKS && yr >= 0 && is_tile_solid( &map[ yb * WINDOW_WIDTH_BLOCKS + yr ] ) ) ||
+			// Only collide with solid-top if falling & interacting with the top o’ the block.
+			(
+				player->vy > 0.0f &&
+				( int )( player->y ) % 16 < 4 &&
+				(
+					( yl < WINDOW_WIDTH_BLOCKS && yl >= 0 && is_tile_solid_top( &map[ yb * WINDOW_WIDTH_BLOCKS + yl ] ) ) ||
+					( yr < WINDOW_WIDTH_BLOCKS && yr >= 0 && is_tile_solid_top( &map[ yb * WINDOW_WIDTH_BLOCKS + yr ] ) )
+				)
+			)
+		)
 	)
 	{
 		player->y = ( float )( yb * 16 );

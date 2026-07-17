@@ -76,6 +76,7 @@ tile_t create_sloped_tile
 );
 tile_t create_solid_tile();
 tile_t create_climb_tile();
+tile_t create_solid_top_tile();
 unsigned int get_tile_slope_colision( const tile_t * tile, unsigned int x );
 unsigned int is_tile_solid( const tile_t * tile );
 unsigned int is_tile_slope( const tile_t * tile );
@@ -83,5 +84,6 @@ unsigned int is_tile_ceiling_slope( const tile_t * tile );
 unsigned int get_tile_slope_steepness( const tile_t * tile );
 unsigned int get_tile_slope_dirx( const tile_t * tile );
 unsigned int is_tile_climbable( const tile_t * tile );
+unsigned int is_tile_solid_top( const tile_t * tile );
 
 #endif // TILE_H
