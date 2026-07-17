@@ -59,6 +59,7 @@ typedef struct sprite_t {
 		graphic_id_t ybr_hitpoint;
 		graphic_id_t ybc_hitpoint;
 		graphic_id_t ybc2_hitpoint;
+		graphic_id_t ytm_hitpoint;
 	}
 	graphics;
 } sprite_t;

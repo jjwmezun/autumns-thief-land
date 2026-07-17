@@ -106,6 +106,10 @@ sprite_t create_player( float x, float y )
 			.ybc2_hitpoint = engine_add_graphic(
 				( rect ){ YC( x ), YB( y ), 1.0f, 1.0f },
 				( color ){ 1.0f, 1.0f, 0.0f, 1.0f }
+			),
+			.ytm_hitpoint = engine_add_graphic(
+				( rect ){ YC( x ), YT( y, h ), 1.0f, 1.0f },
+				( color ){ 1.0f, 1.0f, 0.0f, 1.0f }
 			)
 		}
 	};
@@ -247,9 +251,9 @@ void update_player( tile_t * map, sprite_t * player )
 			if
 			(
 				xr < WINDOW_WIDTH_BLOCKS && xr >= 0 &&
-				( ( xt < WINDOW_HEIGHT_BLOCKS && xt >= 0 && map[ xt * WINDOW_WIDTH_BLOCKS + xr ].type == TILE_SOLID ) ||
-				( xm < WINDOW_HEIGHT_BLOCKS && xm >= 0 && map[ xm * WINDOW_WIDTH_BLOCKS + xr ].type == TILE_SOLID ) ||
-				( xb < WINDOW_HEIGHT_BLOCKS && xb >= 0 && map[ xb * WINDOW_WIDTH_BLOCKS + xr ].type == TILE_SOLID ) )
+				( ( xt < WINDOW_HEIGHT_BLOCKS && xt >= 0 && is_tile_solid( &map[ xt * WINDOW_WIDTH_BLOCKS + xr ] ) ) ||
+				( xm < WINDOW_HEIGHT_BLOCKS && xm >= 0 && is_tile_solid( &map[ xm * WINDOW_WIDTH_BLOCKS + xr ] ) ) ||
+				( xb < WINDOW_HEIGHT_BLOCKS && xb >= 0 && is_tile_solid( &map[ xb * WINDOW_WIDTH_BLOCKS + xr ] ) ) )
 			)
 			{
 				player->x = ( float )( xr * 16 ) - 15.0f;
@@ -261,9 +265,9 @@ void update_player( tile_t * map, sprite_t * player )
 			else if
 			(
 				xl < WINDOW_WIDTH_BLOCKS && xl >= 0 &&
-				( ( xt < WINDOW_HEIGHT_BLOCKS && xt >= 0 && map[ xt * WINDOW_WIDTH_BLOCKS + xl ].type == TILE_SOLID ) ||
-				( xm < WINDOW_HEIGHT_BLOCKS && xm >= 0 && map[ xm * WINDOW_WIDTH_BLOCKS + xl ].type == TILE_SOLID ) ||
-				( xb < WINDOW_HEIGHT_BLOCKS && xb >= 0 && map[ xb * WINDOW_WIDTH_BLOCKS + xl ].type == TILE_SOLID ) )
+				( ( xt < WINDOW_HEIGHT_BLOCKS && xt >= 0 && is_tile_solid( &map[ xt * WINDOW_WIDTH_BLOCKS + xl ] ) ) ||
+				( xm < WINDOW_HEIGHT_BLOCKS && xm >= 0 && is_tile_solid( &map[ xm * WINDOW_WIDTH_BLOCKS + xl ] ) ) ||
+				( xb < WINDOW_HEIGHT_BLOCKS && xb >= 0 && is_tile_solid( &map[ xb * WINDOW_WIDTH_BLOCKS + xl ] ) ) )
 			)
 			{
 				player->x = ( float )( ( xl + 1 ) * 16 ) - 1.0f;
@@ -300,8 +304,8 @@ void update_player( tile_t * map, sprite_t * player )
 			if (
 				onslope == 0 &&
 				yb < WINDOW_HEIGHT_BLOCKS && yb >= 0 &&
-				( ( yl < WINDOW_WIDTH_BLOCKS && yl >= 0 && map[ yb * WINDOW_WIDTH_BLOCKS + yl ].type == TILE_SOLID ) ||
-				( yr < WINDOW_WIDTH_BLOCKS && yr >= 0 && map[ yb * WINDOW_WIDTH_BLOCKS + yr ].type == TILE_SOLID ) )
+				( ( yl < WINDOW_WIDTH_BLOCKS && yl >= 0 && is_tile_solid( &map[ yb * WINDOW_WIDTH_BLOCKS + yl ] ) ) ||
+				( yr < WINDOW_WIDTH_BLOCKS && yr >= 0 && is_tile_solid( &map[ yb * WINDOW_WIDTH_BLOCKS + yr ] ) ) )
 			)
 			{
 				player->y = ( float )( yb * 16 );
@@ -312,8 +316,8 @@ void update_player( tile_t * map, sprite_t * player )
 			}
 			else if (
 				yt < WINDOW_HEIGHT_BLOCKS && yt >= 0 &&
-				( ( yl < WINDOW_WIDTH_BLOCKS && yl >= 0 && map[ yt * WINDOW_WIDTH_BLOCKS + yl ].type == TILE_SOLID ) ||
-				( yr < WINDOW_WIDTH_BLOCKS && yr >= 0 && map[ yt * WINDOW_WIDTH_BLOCKS + yr ].type == TILE_SOLID ) )
+				( ( yl < WINDOW_WIDTH_BLOCKS && yl >= 0 && is_tile_solid( &map[ yt * WINDOW_WIDTH_BLOCKS + yl ] ) ) ||
+				( yr < WINDOW_WIDTH_BLOCKS && yr >= 0 && is_tile_solid( &map[ yt * WINDOW_WIDTH_BLOCKS + yr ] ) ) )
 			)
 			{
 				player->y = ( float )( ( yt + 1 ) * 16 ) + player->h;
@@ -323,6 +327,31 @@ void update_player( tile_t * map, sprite_t * player )
 				}
 				player->accy = 0.0f;
 				player->isjumping = 0;
+			}
+			else
+			{
+				// Handle sloped ceiling collision.
+				const int yc = ( int )( YC( player->x ) / 16.0f );
+				if (
+					yt < WINDOW_HEIGHT_BLOCKS && yt >= 0 &&
+					( yc < WINDOW_WIDTH_BLOCKS && yc >= 0 && is_tile_ceiling_slope( &map[ yt * WINDOW_WIDTH_BLOCKS + yc ] ) )
+				)
+				{
+					const unsigned int rely = ( unsigned int )( YT( player->y, player->h ) ) - yt * 16;
+					const unsigned int relx = ( unsigned int )( YC( player->x ) ) % 16;
+					const tile_t * tile = &map[ yt * WINDOW_WIDTH_BLOCKS + yc ];
+					const unsigned int sy = 16 - ( unsigned int )( get_tile_slope_colision( tile, relx ) );
+					if ( rely <= sy )
+					{
+						player->y = ( float )( yt * 16 ) + ( float )( sy ) + player->h;
+						if ( player->vy < 0.0f )
+						{
+							player->vy *= -0.25f;
+						}
+						player->accy = 0.0f;
+						player->isjumping = 0;
+					}
+				}
 			}
 		}
 		break;
@@ -372,7 +401,7 @@ void update_player( tile_t * map, sprite_t * player )
 				if (
 					yb < WINDOW_HEIGHT_BLOCKS && yb >= 0 &&
 					( yc < WINDOW_WIDTH_BLOCKS && yc >= 0 &&
-						( map[ yb * WINDOW_WIDTH_BLOCKS + yc ].type == TILE_SLOPE ) )
+						( is_tile_slope( &map[ yb * WINDOW_WIDTH_BLOCKS + yc ] ) ) )
 				)
 				{
 					const unsigned int rely = ( unsigned int )( ypoint ) - yb * 16;
@@ -453,9 +482,9 @@ void update_player( tile_t * map, sprite_t * player )
 			if
 			(
 				xr < WINDOW_WIDTH_BLOCKS && xr >= 0 &&
-				( ( xt < WINDOW_HEIGHT_BLOCKS && xt >= 0 && map[ xt * WINDOW_WIDTH_BLOCKS + xr ].type == TILE_SOLID ) ||
-				( xm < WINDOW_HEIGHT_BLOCKS && xm >= 0 && map[ xm * WINDOW_WIDTH_BLOCKS + xr ].type == TILE_SOLID ) ||
-				( xb < WINDOW_HEIGHT_BLOCKS && xb >= 0 && map[ xb * WINDOW_WIDTH_BLOCKS + xr ].type == TILE_SOLID ) )
+				( ( xt < WINDOW_HEIGHT_BLOCKS && xt >= 0 && is_tile_solid( &map[ xt * WINDOW_WIDTH_BLOCKS + xr ] ) ) ||
+				( xm < WINDOW_HEIGHT_BLOCKS && xm >= 0 && is_tile_solid( &map[ xm * WINDOW_WIDTH_BLOCKS + xr ] ) ) ||
+				( xb < WINDOW_HEIGHT_BLOCKS && xb >= 0 && is_tile_solid( &map[ xb * WINDOW_WIDTH_BLOCKS + xr ] ) ) )
 			)
 			{
 				player->x = ( float )( xr * 16 ) - 15.0f;
@@ -467,9 +496,9 @@ void update_player( tile_t * map, sprite_t * player )
 			else if
 			(
 				xl < WINDOW_WIDTH_BLOCKS && xl >= 0 &&
-				( ( xt < WINDOW_HEIGHT_BLOCKS && xt >= 0 && map[ xt * WINDOW_WIDTH_BLOCKS + xl ].type == TILE_SOLID ) ||
-				( xm < WINDOW_HEIGHT_BLOCKS && xm >= 0 && map[ xm * WINDOW_WIDTH_BLOCKS + xl ].type == TILE_SOLID ) ||
-				( xb < WINDOW_HEIGHT_BLOCKS && xb >= 0 && map[ xb * WINDOW_WIDTH_BLOCKS + xl ].type == TILE_SOLID ) )
+				( ( xt < WINDOW_HEIGHT_BLOCKS && xt >= 0 && is_tile_solid( &map[ xt * WINDOW_WIDTH_BLOCKS + xl ] ) ) ||
+				( xm < WINDOW_HEIGHT_BLOCKS && xm >= 0 && is_tile_solid( &map[ xm * WINDOW_WIDTH_BLOCKS + xl ] ) ) ||
+				( xb < WINDOW_HEIGHT_BLOCKS && xb >= 0 && is_tile_solid( &map[ xb * WINDOW_WIDTH_BLOCKS + xl ] ) ) )
 			)
 			{
 				player->x = ( float )( ( xl + 1 ) * 16 ) - 1.0f;
@@ -506,8 +535,8 @@ void update_player( tile_t * map, sprite_t * player )
 			if (
 				onslope == 0 &&
 				yb < WINDOW_HEIGHT_BLOCKS && yb >= 0 &&
-				( ( yl < WINDOW_WIDTH_BLOCKS && yl >= 0 && map[ yb * WINDOW_WIDTH_BLOCKS + yl ].type == TILE_SOLID ) ||
-				( yr < WINDOW_WIDTH_BLOCKS && yr >= 0 && map[ yb * WINDOW_WIDTH_BLOCKS + yr ].type == TILE_SOLID ) )
+				( ( yl < WINDOW_WIDTH_BLOCKS && yl >= 0 && is_tile_solid( &map[ yb * WINDOW_WIDTH_BLOCKS + yl ] ) ) ||
+				( yr < WINDOW_WIDTH_BLOCKS && yr >= 0 && is_tile_solid( &map[ yb * WINDOW_WIDTH_BLOCKS + yr ] ) ) )
 			)
 			{
 				player->y = ( float )( yb * 16 );
@@ -518,8 +547,8 @@ void update_player( tile_t * map, sprite_t * player )
 			}
 			else if (
 				yt < WINDOW_HEIGHT_BLOCKS && yt >= 0 &&
-				( ( yl < WINDOW_WIDTH_BLOCKS && yl >= 0 && map[ yt * WINDOW_WIDTH_BLOCKS + yl ].type == TILE_SOLID ) ||
-				( yr < WINDOW_WIDTH_BLOCKS && yr >= 0 && map[ yt * WINDOW_WIDTH_BLOCKS + yr ].type == TILE_SOLID ) )
+				( ( yl < WINDOW_WIDTH_BLOCKS && yl >= 0 && is_tile_solid( &map[ yt * WINDOW_WIDTH_BLOCKS + yl ] ) ) ||
+				( yr < WINDOW_WIDTH_BLOCKS && yr >= 0 && is_tile_solid( &map[ yt * WINDOW_WIDTH_BLOCKS + yr ] ) ) )
 			)
 			{
 				player->y = ( float )( ( yt + 1 ) * 16 ) + player->h;
@@ -574,6 +603,9 @@ void update_player( tile_t * map, sprite_t * player )
 
 	engine_set_graphic_x( player->graphics.ybc2_hitpoint, YC( player->x ) );
 	engine_set_graphic_y( player->graphics.ybc2_hitpoint, YB( player->y ) );
+
+	engine_set_graphic_x( player->graphics.ytm_hitpoint, YC( player->x ) );
+	engine_set_graphic_y( player->graphics.ytm_hitpoint, YT( player->y, player->h ) );
 }
 
 static unsigned int is_going_fast( const sprite_t * sprite )
@@ -588,7 +620,7 @@ static unsigned int slope_physics( const tile_t * map, sprite_t * sprite, float 
 	if (
 		yb < WINDOW_HEIGHT_BLOCKS && yb >= 0 &&
 		( yc < WINDOW_WIDTH_BLOCKS && yc >= 0 &&
-			( map[ yb * WINDOW_WIDTH_BLOCKS + yc ].type == TILE_SLOPE ) )
+			( is_tile_slope( &map[ yb * WINDOW_WIDTH_BLOCKS + yc ] ) ) )
 	)
 	{
 		const unsigned int rely = ( unsigned int )( ypoint ) - yb * 16;
@@ -615,18 +647,18 @@ static unsigned int slope_physics( const tile_t * map, sprite_t * sprite, float 
 			sprite->vy = 0.0f;
 			sprite->accy = 0.0f;
 
-			if ( tile->steepness > TILE_FLAT )
+			if ( is_tile_slope( tile ) && tile->data.slope.steepness > TILE_FLAT )
 			{
 				if ( input_pressed_down() )
 				{
 					sprite->state = SPRITE_STATE_SLIDING;
-					sprite->dirx = tile->dirx;
+					sprite->dirx = tile->data.slope.dirx;
 					static const float SLIDESPEEDS[ 4 ] = { 0.0f, 0.3f, 0.5f, 0.35f };
 					static const float MAXSLIDESPEEDYMULTIPLIER[ 4 ] = { 0.0f, 0.5f, 1.0f, 2.0f };
-					sprite->accx = SLIDESPEEDS[ tile->steepness ] * ( tile->dirx == TILE_LEFT ? -1.0f : 1.0f );
-					sprite->accy = SLIDESPEEDS[ tile->steepness ] * MAXSLIDESPEEDYMULTIPLIER[ tile->steepness ];
-					sprite->maxslidespeedx = SLIDESPEEDS[ tile->steepness ] * 10.0f;
-					sprite->maxslidespeedy = SLIDESPEEDS[ tile->steepness ] * MAXSLIDESPEEDYMULTIPLIER[ tile->steepness ] * 10.0f;
+					sprite->accx = SLIDESPEEDS[ tile->data.slope.steepness ] * ( tile->data.slope.dirx == TILE_LEFT ? -1.0f : 1.0f );
+					sprite->accy = SLIDESPEEDS[ tile->data.slope.steepness ] * MAXSLIDESPEEDYMULTIPLIER[ tile->data.slope.steepness ];
+					sprite->maxslidespeedx = SLIDESPEEDS[ tile->data.slope.steepness ] * 10.0f;
+					sprite->maxslidespeedy = SLIDESPEEDS[ tile->data.slope.steepness ] * MAXSLIDESPEEDYMULTIPLIER[ tile->data.slope.steepness ] * 10.0f;
 					sprite->maxspeedx = sprite->maxslidespeedx;
 
 					/*
@@ -645,10 +677,10 @@ static unsigned int slope_physics( const tile_t * map, sprite_t * sprite, float 
 				}
 
 				static const float RESISTANCES[ 4 ] = { 0.0f, 0.1f, 0.2f, 0.3f };
-				const float resistance = RESISTANCES[ tile->steepness ];
-				const float fall = tile->steepness == TILE_HIGH ? 1.25f : tile->steepness == TILE_MEDIUM ? 0.1f : 0.0f;
-				const float fally = tile->steepness == TILE_HIGH ? 1.25f : tile->steepness == TILE_MEDIUM ? 0.1f : 0.0f;
-				if ( tile->dirx == TILE_LEFT )
+				const float resistance = RESISTANCES[ tile->data.slope.steepness ];
+				const float fall = tile->data.slope.steepness == TILE_HIGH ? 1.25f : tile->data.slope.steepness == TILE_MEDIUM ? 0.1f : 0.0f;
+				const float fally = tile->data.slope.steepness == TILE_HIGH ? 1.25f : tile->data.slope.steepness == TILE_MEDIUM ? 0.1f : 0.0f;
+				if ( tile->data.slope.dirx == TILE_LEFT )
 				{
 					if ( sprite->vx > 0.0f )
 					{
