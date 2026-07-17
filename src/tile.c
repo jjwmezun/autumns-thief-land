@@ -20,28 +20,28 @@ tile_t create_sloped_tile
 		.data = {
 			.slope =
 			{
-				.isceiling = isceiling,
-				.dirx = dirx,
-				.steepness = steepness,
-				.collision1 =
+				.data1 =
 					( l0 << 0 ) |
 					( l1 << 5 ) |
 					( l2 << 10 ) |
 					( l3 << 15 ) |
 					( l4 << 20 ) |
 					( l5 << 25 ),
-				.collision2 =
+				.data2 =
 					( l6 << 0 ) |
 					( l7 << 5 ) |
 					( l8 << 10 ) |
 					( l9 << 15 ) |
 					( l10 << 20 ) |
 					( l11 << 25 ),
-				.collision3 =
+				.data3 =
 					( l12 << 0 ) |
 					( l13 << 5 ) |
 					( l14 << 10 ) |
-					( l15 << 15 )
+					( l15 << 15 ) |
+					( isceiling << 20 ) |
+					( dirx << 21 ) |
+					( steepness << 22 )
 			}
 		}
 	};
@@ -55,15 +55,15 @@ unsigned int get_tile_slope_colision( const tile_t * tile, unsigned int x )
 	}
 	else if ( x < 6 )
 	{
-		return ( tile->data.slope.collision1 >> ( x * 5 ) ) & 0x1F;
+		return ( tile->data.slope.data1 >> ( x * 5 ) ) & 0x1F;
 	}
 	else if ( x < 12 )
 	{
-		return ( tile->data.slope.collision2 >> ( ( x - 6 ) * 5 ) ) & 0x1F;
+		return ( tile->data.slope.data2 >> ( ( x - 6 ) * 5 ) ) & 0x1F;
 	}
 	else
 	{
-		return ( tile->data.slope.collision3 >> ( ( x - 12 ) * 5 ) ) & 0x1F;
+		return ( tile->data.slope.data3 >> ( ( x - 12 ) * 5 ) ) & 0x1F;
 	}
 };
 
@@ -79,10 +79,20 @@ unsigned int is_tile_solid( const tile_t * tile )
 
 unsigned int is_tile_slope( const tile_t * tile )
 {
-	return tile->type == TILE_SLOPE && !tile->data.slope.isceiling;
+	return tile->type == TILE_SLOPE && !((tile->data.slope.data3 >> 20) & 0x1);
 };
 
 unsigned int is_tile_ceiling_slope( const tile_t * tile )
 {
-	return tile->type == TILE_SLOPE && tile->data.slope.isceiling;
+	return tile->type == TILE_SLOPE && ((tile->data.slope.data3 >> 20) & 0x1);
+};
+
+unsigned int get_tile_slope_steepness( const tile_t * tile )
+{
+	return ( tile->data.slope.data3 >> 22 ) & 0x3;
+};
+
+unsigned int get_tile_slope_dirx( const tile_t * tile )
+{
+	return ( tile->data.slope.data3 >> 21 ) & 0x1;
 };

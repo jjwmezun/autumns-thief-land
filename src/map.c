@@ -1123,7 +1123,7 @@ tile_t * create_map()
 						continue;
 					}
 					const float sh = 16.0f - s;
-					const float sy = tile->data.slope.isceiling
+					const float sy = is_tile_ceiling_slope( tile )
 						? ( float )( y * 16 )
 						: ( float )( y * 16 ) + ( 16.0f - sh );
 					engine_add_graphic(

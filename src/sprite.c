@@ -117,6 +117,7 @@ sprite_t create_player( float x, float y )
 
 void update_player( tile_t * map, sprite_t * player )
 {
+	printf( "Size: %lu\n", sizeof( tile_t ) );
 	switch ( player->state )
 	{
 		case SPRITE_STATE_NORMAL:
@@ -647,18 +648,18 @@ static unsigned int slope_physics( const tile_t * map, sprite_t * sprite, float 
 			sprite->vy = 0.0f;
 			sprite->accy = 0.0f;
 
-			if ( is_tile_slope( tile ) && tile->data.slope.steepness > TILE_FLAT )
+			if ( is_tile_slope( tile ) && get_tile_slope_steepness( tile ) > TILE_FLAT )
 			{
 				if ( input_pressed_down() )
 				{
 					sprite->state = SPRITE_STATE_SLIDING;
-					sprite->dirx = tile->data.slope.dirx;
+					sprite->dirx = get_tile_slope_dirx( tile );
 					static const float SLIDESPEEDS[ 4 ] = { 0.0f, 0.3f, 0.5f, 0.35f };
 					static const float MAXSLIDESPEEDYMULTIPLIER[ 4 ] = { 0.0f, 0.5f, 1.0f, 2.0f };
-					sprite->accx = SLIDESPEEDS[ tile->data.slope.steepness ] * ( tile->data.slope.dirx == TILE_LEFT ? -1.0f : 1.0f );
-					sprite->accy = SLIDESPEEDS[ tile->data.slope.steepness ] * MAXSLIDESPEEDYMULTIPLIER[ tile->data.slope.steepness ];
-					sprite->maxslidespeedx = SLIDESPEEDS[ tile->data.slope.steepness ] * 10.0f;
-					sprite->maxslidespeedy = SLIDESPEEDS[ tile->data.slope.steepness ] * MAXSLIDESPEEDYMULTIPLIER[ tile->data.slope.steepness ] * 10.0f;
+					sprite->accx = SLIDESPEEDS[ get_tile_slope_steepness( tile ) ] * ( get_tile_slope_dirx( tile ) == TILE_LEFT ? -1.0f : 1.0f );
+					sprite->accy = SLIDESPEEDS[ get_tile_slope_steepness( tile ) ] * MAXSLIDESPEEDYMULTIPLIER[ get_tile_slope_steepness( tile ) ];
+					sprite->maxslidespeedx = SLIDESPEEDS[ get_tile_slope_steepness( tile ) ] * 10.0f;
+					sprite->maxslidespeedy = SLIDESPEEDS[ get_tile_slope_steepness( tile ) ] * MAXSLIDESPEEDYMULTIPLIER[ get_tile_slope_steepness( tile ) ] * 10.0f;
 					sprite->maxspeedx = sprite->maxslidespeedx;
 
 					/*
@@ -677,10 +678,10 @@ static unsigned int slope_physics( const tile_t * map, sprite_t * sprite, float 
 				}
 
 				static const float RESISTANCES[ 4 ] = { 0.0f, 0.1f, 0.2f, 0.3f };
-				const float resistance = RESISTANCES[ tile->data.slope.steepness ];
-				const float fall = tile->data.slope.steepness == TILE_HIGH ? 1.25f : tile->data.slope.steepness == TILE_MEDIUM ? 0.1f : 0.0f;
-				const float fally = tile->data.slope.steepness == TILE_HIGH ? 1.25f : tile->data.slope.steepness == TILE_MEDIUM ? 0.1f : 0.0f;
-				if ( tile->data.slope.dirx == TILE_LEFT )
+				const float resistance = RESISTANCES[ get_tile_slope_steepness( tile ) ];
+				const float fall = get_tile_slope_steepness( tile ) == TILE_HIGH ? 1.25f : get_tile_slope_steepness( tile ) == TILE_MEDIUM ? 0.1f : 0.0f;
+				const float fally = get_tile_slope_steepness( tile ) == TILE_HIGH ? 1.25f : get_tile_slope_steepness( tile ) == TILE_MEDIUM ? 0.1f : 0.0f;
+				if ( get_tile_slope_dirx( tile ) == TILE_LEFT )
 				{
 					if ( sprite->vx > 0.0f )
 					{
