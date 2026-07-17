@@ -17,6 +17,7 @@
 
 static unsigned int is_going_fast( const sprite_t * sprite );
 static unsigned int slope_physics( const tile_t * map, sprite_t * sprite, float ypoint );
+static void general_player_collision( const tile_t * map, sprite_t * player );
 
 sprite_t create_player( float x, float y )
 {
@@ -117,7 +118,6 @@ sprite_t create_player( float x, float y )
 
 void update_player( tile_t * map, sprite_t * player )
 {
-	printf( "Size: %lu\n", sizeof( tile_t ) );
 	switch ( player->state )
 	{
 		case SPRITE_STATE_NORMAL:
@@ -242,116 +242,40 @@ void update_player( tile_t * map, sprite_t * player )
 			player->x += player->vx;
 			player->y += player->vy;
 
+			
+			general_player_collision( map, player );
+
 			const unsigned int xl = ( unsigned int )( XL( player->x ) / 16.0f );
 			const unsigned int xr = ( unsigned int )( XR( player->x ) / 16.0f );
 			const unsigned int xm = ( unsigned int )( XM( player->y, player->h ) / 16.0f );
-			const unsigned int xb = ( unsigned int )( XB( player->y ) / 16.0f );
 			const unsigned int xt = ( unsigned int )( XT( player->y, player->h ) / 16.0f );
 
-			// Solid X collision.
-			if
-			(
-				xr < WINDOW_WIDTH_BLOCKS && xr >= 0 &&
-				( ( xt < WINDOW_HEIGHT_BLOCKS && xt >= 0 && is_tile_solid( &map[ xt * WINDOW_WIDTH_BLOCKS + xr ] ) ) ||
-				( xm < WINDOW_HEIGHT_BLOCKS && xm >= 0 && is_tile_solid( &map[ xm * WINDOW_WIDTH_BLOCKS + xr ] ) ) ||
-				( xb < WINDOW_HEIGHT_BLOCKS && xb >= 0 && is_tile_solid( &map[ xb * WINDOW_WIDTH_BLOCKS + xr ] ) ) )
-			)
+			// Climbable collision.
+			if ( player->slidestate == SLIDE_NONE )
 			{
-				player->x = ( float )( xr * 16 ) - 15.0f;
-				if ( player->vx > 0.0f )
-				{
-					player->vx *= -0.25f;
-				}
-			}
-			else if
-			(
-				xl < WINDOW_WIDTH_BLOCKS && xl >= 0 &&
-				( ( xt < WINDOW_HEIGHT_BLOCKS && xt >= 0 && is_tile_solid( &map[ xt * WINDOW_WIDTH_BLOCKS + xl ] ) ) ||
-				( xm < WINDOW_HEIGHT_BLOCKS && xm >= 0 && is_tile_solid( &map[ xm * WINDOW_WIDTH_BLOCKS + xl ] ) ) ||
-				( xb < WINDOW_HEIGHT_BLOCKS && xb >= 0 && is_tile_solid( &map[ xb * WINDOW_WIDTH_BLOCKS + xl ] ) ) )
-			)
-			{
-				player->x = ( float )( ( xl + 1 ) * 16 ) - 1.0f;
-				if ( player->vx < 0.0f )
-				{
-					player->vx *= -0.25f;
-				}
-			}
-
-			const int yt = ( int )( YT( player->y, player->h ) / 16.0f );
-			const int yb = ( int )( YB( player->y ) / 16.0f );
-			const int yl = ( int )( YL( player->x ) / 16.0f );
-			const int yr = ( int )( YR( player->x ) / 16.0f );
-			unsigned int onslope = 0;
-
-			// Slope collision.
-			if ( player->slidestate <= SLIDE_DUCK )
-			{
-				onslope = slope_physics( map, player, YCB( player->y ) );
-			}
-
-			if ( player->state == SPRITE_STATE_SLIDING )
-			{
-				break;
-			}
-			onslope = slope_physics( map, player, YB( player->y ) ) || onslope;
-
-			if ( player->state == SPRITE_STATE_SLIDING )
-			{
-				break;
-			}
-
-			// Solid Y collision.
-			if (
-				onslope == 0 &&
-				yb < WINDOW_HEIGHT_BLOCKS && yb >= 0 &&
-				( ( yl < WINDOW_WIDTH_BLOCKS && yl >= 0 && is_tile_solid( &map[ yb * WINDOW_WIDTH_BLOCKS + yl ] ) ) ||
-				( yr < WINDOW_WIDTH_BLOCKS && yr >= 0 && is_tile_solid( &map[ yb * WINDOW_WIDTH_BLOCKS + yr ] ) ) )
-			)
-			{
-				player->y = ( float )( yb * 16 );
-				player->vy = 0.0f;
-				player->accy = 0.0f;
-				player->onground = 1;
-				player->jump_padding = is_going_fast( player ) ? 16.0f : 2.0f;
-			}
-			else if (
-				yt < WINDOW_HEIGHT_BLOCKS && yt >= 0 &&
-				( ( yl < WINDOW_WIDTH_BLOCKS && yl >= 0 && is_tile_solid( &map[ yt * WINDOW_WIDTH_BLOCKS + yl ] ) ) ||
-				( yr < WINDOW_WIDTH_BLOCKS && yr >= 0 && is_tile_solid( &map[ yt * WINDOW_WIDTH_BLOCKS + yr ] ) ) )
-			)
-			{
-				player->y = ( float )( ( yt + 1 ) * 16 ) + player->h;
-				if ( player->vy < 0.0f )
-				{
-					player->vy *= -0.25f;
-				}
-				player->accy = 0.0f;
-				player->isjumping = 0;
-			}
-			else
-			{
-				// Handle sloped ceiling collision.
-				const int yc = ( int )( YC( player->x ) / 16.0f );
-				if (
-					yt < WINDOW_HEIGHT_BLOCKS && yt >= 0 &&
-					( yc < WINDOW_WIDTH_BLOCKS && yc >= 0 && is_tile_ceiling_slope( &map[ yt * WINDOW_WIDTH_BLOCKS + yc ] ) )
+				if
+				(
+					xr < WINDOW_WIDTH_BLOCKS && xr >= 0 &&
+					( ( xt < WINDOW_HEIGHT_BLOCKS && xt >= 0 && is_tile_climbable( &map[ xt * WINDOW_WIDTH_BLOCKS + xr ] ) ) ||
+					( xm < WINDOW_HEIGHT_BLOCKS && xm >= 0 && is_tile_climbable( &map[ xm * WINDOW_WIDTH_BLOCKS + xr ] ) ) ) &&
+					input_pressed_up()
 				)
 				{
-					const unsigned int rely = ( unsigned int )( YT( player->y, player->h ) ) - yt * 16;
-					const unsigned int relx = ( unsigned int )( YC( player->x ) ) % 16;
-					const tile_t * tile = &map[ yt * WINDOW_WIDTH_BLOCKS + yc ];
-					const unsigned int sy = 16 - ( unsigned int )( get_tile_slope_colision( tile, relx ) );
-					if ( rely <= sy )
-					{
-						player->y = ( float )( yt * 16 ) + ( float )( sy ) + player->h;
-						if ( player->vy < 0.0f )
-						{
-							player->vy *= -0.25f;
-						}
-						player->accy = 0.0f;
-						player->isjumping = 0;
-					}
+					player->state = SPRITE_STATE_CLIMBING;
+					player->vy = 0.0f;
+					player->accy = 0.0f;
+				}
+				else if
+				(
+					xl < WINDOW_WIDTH_BLOCKS && xl >= 0 &&
+					( ( xt < WINDOW_HEIGHT_BLOCKS && xt >= 0 && is_tile_climbable( &map[ xt * WINDOW_WIDTH_BLOCKS + xl ] ) ) ||
+					( xm < WINDOW_HEIGHT_BLOCKS && xm >= 0 && is_tile_climbable( &map[ xm * WINDOW_WIDTH_BLOCKS + xl ] ) ) ) &&
+					input_pressed_up()
+				)
+				{
+					player->state = SPRITE_STATE_CLIMBING;
+					player->vy = 0.0f;
+					player->accy = 0.0f;
 				}
 			}
 		}
@@ -473,92 +397,106 @@ void update_player( tile_t * map, sprite_t * player )
 			player->x += player->vx;
 			player->y += player->vy;
 
+			general_player_collision( map, player );
+		}
+		break;
+		case ( SPRITE_STATE_CLIMBING ):
+		{
+			#define CLIMB_MAX_SPEED 0.75f
+
+			if ( input_pressed_jump() )
+			{
+				player->state = SPRITE_STATE_NORMAL;
+				player->vy = -player->startjump;
+				player->accy = -player->jumpacc;
+				player->onground = 0;
+				player->isjumping = 1;
+				break;
+			}
+
+			if ( input_pressed_up() )
+			{
+				player->accy = -player->startspeedx;
+			}
+			else if ( input_pressed_down() )
+			{
+				player->accy = player->startspeedx;
+			}
+			else
+			{
+				player->accy = 0.0f;
+				player->vy /= 1.0f + 0.5f;
+			}
+
+			player->vy += player->accy;
+			if ( player->vy > CLIMB_MAX_SPEED )
+			{
+				player->vy = CLIMB_MAX_SPEED;
+			}
+			else if ( player->vy < -CLIMB_MAX_SPEED )
+			{
+				player->vy = -CLIMB_MAX_SPEED;
+			}
+
+			player->y += player->vy;
+
+			if ( input_pressed_left() )
+			{
+				player->accx = -player->startspeedx;
+			}
+			else if ( input_pressed_right() )
+			{
+				player->accx = player->startspeedx;
+			}
+			else
+			{
+				player->accx = 0.0f;
+				player->vx /= 1.0f + 0.5f;
+			}
+
+			player->vx += player->accx;
+			if ( player->vx > CLIMB_MAX_SPEED )
+			{
+				player->vx = CLIMB_MAX_SPEED;
+			}
+			else if ( player->vx < -CLIMB_MAX_SPEED )
+			{
+				player->vx = -CLIMB_MAX_SPEED;
+			}
+
+			player->x += player->vx;
+
+			general_player_collision( map, player );
+
 			const unsigned int xl = ( unsigned int )( XL( player->x ) / 16.0f );
 			const unsigned int xr = ( unsigned int )( XR( player->x ) / 16.0f );
 			const unsigned int xm = ( unsigned int )( XM( player->y, player->h ) / 16.0f );
-			const unsigned int xb = ( unsigned int )( XB( player->y ) / 16.0f );
 			const unsigned int xt = ( unsigned int )( XT( player->y, player->h ) / 16.0f );
 
-			// Solid X collision.
+			// Climbable collision.
+			unsigned int on_climbable = 0;
 			if
 			(
 				xr < WINDOW_WIDTH_BLOCKS && xr >= 0 &&
-				( ( xt < WINDOW_HEIGHT_BLOCKS && xt >= 0 && is_tile_solid( &map[ xt * WINDOW_WIDTH_BLOCKS + xr ] ) ) ||
-				( xm < WINDOW_HEIGHT_BLOCKS && xm >= 0 && is_tile_solid( &map[ xm * WINDOW_WIDTH_BLOCKS + xr ] ) ) ||
-				( xb < WINDOW_HEIGHT_BLOCKS && xb >= 0 && is_tile_solid( &map[ xb * WINDOW_WIDTH_BLOCKS + xr ] ) ) )
+				( ( xt < WINDOW_HEIGHT_BLOCKS && xt >= 0 && is_tile_climbable( &map[ xt * WINDOW_WIDTH_BLOCKS + xr ] ) ) ||
+				( xm < WINDOW_HEIGHT_BLOCKS && xm >= 0 && is_tile_climbable( &map[ xm * WINDOW_WIDTH_BLOCKS + xr ] ) ) )
 			)
 			{
-				player->x = ( float )( xr * 16 ) - 15.0f;
-				if ( player->vx > 0.0f )
-				{
-					player->vx *= -0.25f;
-				}
+				on_climbable = 1;
 			}
 			else if
 			(
 				xl < WINDOW_WIDTH_BLOCKS && xl >= 0 &&
-				( ( xt < WINDOW_HEIGHT_BLOCKS && xt >= 0 && is_tile_solid( &map[ xt * WINDOW_WIDTH_BLOCKS + xl ] ) ) ||
-				( xm < WINDOW_HEIGHT_BLOCKS && xm >= 0 && is_tile_solid( &map[ xm * WINDOW_WIDTH_BLOCKS + xl ] ) ) ||
-				( xb < WINDOW_HEIGHT_BLOCKS && xb >= 0 && is_tile_solid( &map[ xb * WINDOW_WIDTH_BLOCKS + xl ] ) ) )
+				( ( xt < WINDOW_HEIGHT_BLOCKS && xt >= 0 && is_tile_climbable( &map[ xt * WINDOW_WIDTH_BLOCKS + xl ] ) ) ||
+				( xm < WINDOW_HEIGHT_BLOCKS && xm >= 0 && is_tile_climbable( &map[ xm * WINDOW_WIDTH_BLOCKS + xl ] ) ) )
 			)
 			{
-				player->x = ( float )( ( xl + 1 ) * 16 ) - 1.0f;
-				if ( player->vx < 0.0f )
-				{
-					player->vx *= -0.25f;
-				}
+				on_climbable = 1;
 			}
 
-			const int yt = ( int )( YT( player->y, player->h ) / 16.0f );
-			const int yb = ( int )( YB( player->y ) / 16.0f );
-			const int yl = ( int )( YL( player->x ) / 16.0f );
-			const int yr = ( int )( YR( player->x ) / 16.0f );
-			unsigned int onslope = 0;
-
-			// Slope collision.
-			if ( player->slidestate <= SLIDE_DUCK )
+			if ( !on_climbable )
 			{
-				onslope = slope_physics( map, player, YCB( player->y ) );
-			}
-
-			if ( player->state == SPRITE_STATE_SLIDING )
-			{
-				break;
-			}
-			onslope = slope_physics( map, player, YB( player->y ) ) || onslope;
-
-			if ( player->state == SPRITE_STATE_SLIDING )
-			{
-				break;
-			}
-
-			// Solid Y collision.
-			if (
-				onslope == 0 &&
-				yb < WINDOW_HEIGHT_BLOCKS && yb >= 0 &&
-				( ( yl < WINDOW_WIDTH_BLOCKS && yl >= 0 && is_tile_solid( &map[ yb * WINDOW_WIDTH_BLOCKS + yl ] ) ) ||
-				( yr < WINDOW_WIDTH_BLOCKS && yr >= 0 && is_tile_solid( &map[ yb * WINDOW_WIDTH_BLOCKS + yr ] ) ) )
-			)
-			{
-				player->y = ( float )( yb * 16 );
-				player->vy = 0.0f;
-				player->accy = 0.0f;
-				player->onground = 1;
-				player->jump_padding = is_going_fast( player ) ? 16.0f : 2.0f;
-			}
-			else if (
-				yt < WINDOW_HEIGHT_BLOCKS && yt >= 0 &&
-				( ( yl < WINDOW_WIDTH_BLOCKS && yl >= 0 && is_tile_solid( &map[ yt * WINDOW_WIDTH_BLOCKS + yl ] ) ) ||
-				( yr < WINDOW_WIDTH_BLOCKS && yr >= 0 && is_tile_solid( &map[ yt * WINDOW_WIDTH_BLOCKS + yr ] ) ) )
-			)
-			{
-				player->y = ( float )( ( yt + 1 ) * 16 ) + player->h;
-				if ( player->vy < 0.0f )
-				{
-					player->vy *= -0.25f;
-				}
-				player->accy = 0.0f;
-				player->isjumping = 0;
+				player->state = SPRITE_STATE_NORMAL;
 			}
 		}
 		break;
@@ -712,4 +650,122 @@ static unsigned int slope_physics( const tile_t * map, sprite_t * sprite, float 
 		}
 	}
 	return 0;
+}
+
+static void general_player_collision( const tile_t * map, sprite_t * player )
+{
+	const unsigned int xl = ( unsigned int )( XL( player->x ) / 16.0f );
+	const unsigned int xr = ( unsigned int )( XR( player->x ) / 16.0f );
+	const unsigned int xm = ( unsigned int )( XM( player->y, player->h ) / 16.0f );
+	const unsigned int xb = ( unsigned int )( XB( player->y ) / 16.0f );
+	const unsigned int xt = ( unsigned int )( XT( player->y, player->h ) / 16.0f );
+
+	// Solid X collision.
+	if
+	(
+		xr < WINDOW_WIDTH_BLOCKS && xr >= 0 &&
+		( ( xt < WINDOW_HEIGHT_BLOCKS && xt >= 0 && is_tile_solid( &map[ xt * WINDOW_WIDTH_BLOCKS + xr ] ) ) ||
+		( xm < WINDOW_HEIGHT_BLOCKS && xm >= 0 && is_tile_solid( &map[ xm * WINDOW_WIDTH_BLOCKS + xr ] ) ) ||
+		( xb < WINDOW_HEIGHT_BLOCKS && xb >= 0 && is_tile_solid( &map[ xb * WINDOW_WIDTH_BLOCKS + xr ] ) ) )
+	)
+	{
+		player->x = ( float )( xr * 16 ) - 15.0f;
+		if ( player->vx > 0.0f )
+		{
+			player->vx *= -0.25f;
+		}
+	}
+	else if
+	(
+		xl < WINDOW_WIDTH_BLOCKS && xl >= 0 &&
+		( ( xt < WINDOW_HEIGHT_BLOCKS && xt >= 0 && is_tile_solid( &map[ xt * WINDOW_WIDTH_BLOCKS + xl ] ) ) ||
+		( xm < WINDOW_HEIGHT_BLOCKS && xm >= 0 && is_tile_solid( &map[ xm * WINDOW_WIDTH_BLOCKS + xl ] ) ) ||
+		( xb < WINDOW_HEIGHT_BLOCKS && xb >= 0 && is_tile_solid( &map[ xb * WINDOW_WIDTH_BLOCKS + xl ] ) ) )
+	)
+	{
+		player->x = ( float )( ( xl + 1 ) * 16 ) - 1.0f;
+		if ( player->vx < 0.0f )
+		{
+			player->vx *= -0.25f;
+		}
+	}
+
+
+	const int yt = ( int )( YT( player->y, player->h ) / 16.0f );
+	const int yb = ( int )( YB( player->y ) / 16.0f );
+	const int yl = ( int )( YL( player->x ) / 16.0f );
+	const int yr = ( int )( YR( player->x ) / 16.0f );
+	unsigned int onslope = 0;
+
+	// Slope collision.
+	if ( player->slidestate <= SLIDE_DUCK )
+	{
+		onslope = slope_physics( map, player, YCB( player->y ) );
+	}
+
+	if ( player->state == SPRITE_STATE_SLIDING )
+	{
+		return;
+	}
+	onslope = slope_physics( map, player, YB( player->y ) ) || onslope;
+
+	if ( player->state == SPRITE_STATE_SLIDING )
+	{
+		return;
+	}
+
+	// Solid Y collision.
+	if (
+		onslope == 0 &&
+		yb < WINDOW_HEIGHT_BLOCKS && yb >= 0 &&
+		( ( yl < WINDOW_WIDTH_BLOCKS && yl >= 0 && is_tile_solid( &map[ yb * WINDOW_WIDTH_BLOCKS + yl ] ) ) ||
+		( yr < WINDOW_WIDTH_BLOCKS && yr >= 0 && is_tile_solid( &map[ yb * WINDOW_WIDTH_BLOCKS + yr ] ) ) )
+	)
+	{
+		player->y = ( float )( yb * 16 );
+		player->vy = 0.0f;
+		player->accy = 0.0f;
+		player->onground = 1;
+		player->jump_padding = is_going_fast( player ) ? 16.0f : 2.0f;
+		player->state = SPRITE_STATE_NORMAL;
+	}
+	else if (
+		yt < WINDOW_HEIGHT_BLOCKS && yt >= 0 &&
+		( ( yl < WINDOW_WIDTH_BLOCKS && yl >= 0 && is_tile_solid( &map[ yt * WINDOW_WIDTH_BLOCKS + yl ] ) ) ||
+		( yr < WINDOW_WIDTH_BLOCKS && yr >= 0 && is_tile_solid( &map[ yt * WINDOW_WIDTH_BLOCKS + yr ] ) ) )
+	)
+	{
+		player->y = ( float )( ( yt + 1 ) * 16 ) + player->h - 1.0f;
+		if ( player->vy < 0.0f )
+		{
+			player->vy *= -0.25f;
+		}
+		player->accy = 0.0f;
+		player->isjumping = 0;
+	}
+	else
+	{
+		// Handle sloped ceiling collision.
+		const int yc = ( int )( YC( player->x ) / 16.0f );
+		if (
+			yt < WINDOW_HEIGHT_BLOCKS && yt >= 0 &&
+			( yc < WINDOW_WIDTH_BLOCKS && yc >= 0 && is_tile_ceiling_slope( &map[ yt * WINDOW_WIDTH_BLOCKS + yc ] ) )
+		)
+		{
+			const unsigned int rely = ( unsigned int )( YT( player->y, player->h ) ) - yt * 16;
+			const unsigned int relx = ( unsigned int )( YC( player->x ) ) % 16;
+			const tile_t * tile = &map[ yt * WINDOW_WIDTH_BLOCKS + yc ];
+			const unsigned int sy = 16 - ( unsigned int )( get_tile_slope_colision( tile, relx ) );
+			if ( rely <= sy )
+			{
+				player->y = ( float )( yt * 16 ) + ( float )( sy ) + player->h;
+				if ( player->vy < 0.0f )
+				{
+					player->vy *= -0.25f;
+				}
+				player->accy = 0.0f;
+				player->isjumping = 0;
+			}
+		}
+	}
 }

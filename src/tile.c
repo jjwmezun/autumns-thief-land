@@ -72,6 +72,11 @@ tile_t create_solid_tile()
 	return ( tile_t ){ .type = TILE_NORMAL, .data = { .normal = { .subtype = TILE_SOLID } } };
 };
 
+tile_t create_climb_tile()
+{
+	return ( tile_t ){ .type = TILE_NORMAL, .data = { .normal = { .subtype = TILE_CLIMB } } };
+};
+
 unsigned int is_tile_solid( const tile_t * tile )
 {
 	return tile->type == TILE_NORMAL && tile->data.normal.subtype == TILE_SOLID;
@@ -95,4 +100,9 @@ unsigned int get_tile_slope_steepness( const tile_t * tile )
 unsigned int get_tile_slope_dirx( const tile_t * tile )
 {
 	return ( tile->data.slope.data3 >> 21 ) & 0x1;
+};
+
+unsigned int is_tile_climbable( const tile_t * tile )
+{
+	return tile->type == TILE_NORMAL && tile->data.normal.subtype == TILE_CLIMB;
 };

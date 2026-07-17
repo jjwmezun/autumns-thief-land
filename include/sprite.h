@@ -9,9 +9,10 @@
 #define SLIDE_LEFT 2
 #define SLIDE_RIGHT 3
 
-#define SPRITE_STATE_NORMAL 0
-#define SPRITE_STATE_SLIDING 1
+#define SPRITE_STATE_NORMAL      0
+#define SPRITE_STATE_SLIDING     1
 #define SPRITE_STATE_SLIDING_END 2
+#define SPRITE_STATE_CLIMBING    3
 
 typedef struct sprite_t {
 	float w;
