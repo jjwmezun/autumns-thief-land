@@ -2,6 +2,7 @@
 #include "dir.h"
 #include <math.h>
 #include "player.h"
+#include <string.h>
 
 #define HLXPOINT( x ) ( ( x ) + 1.0f )
 #define HRXPOINT( x ) ( ( x ) + 15.0f )
@@ -13,9 +14,33 @@
 #define VLXPOINT( x ) ( ( x ) + 3.0f )
 #define VRXPOINT( x ) ( ( x ) + 12.0f )
 #define VCXPOINT( x ) ( ( x ) + 7.5f )
-#define VCBXPOINT( y ) ( ( y ) - 2.0f )
+#define VCBYPOINT( y ) ( ( y ) - 2.0f )
+
+#define COLLISION_HLT   0
+#define COLLISION_HLC   1
+#define COLLISION_HLB   2
+#define COLLISION_HRT   3
+#define COLLISION_HRC   4
+#define COLLISION_HRB   5
+#define COLLISION_VTL   6
+#define COLLISION_VTC   7
+#define COLLISION_VTR   8
+#define COLLISION_VBL   9
+#define COLLISION_VBC  10
+#define COLLISION_VBR  11
+#define COLLISION_VBCC 12
+
+#define COLLISION_COUNT 13
+
+typedef struct collision_t {
+	tile_t tile;
+	uint16_t x;
+	uint16_t y;
+	unsigned int valid : 1;
+} collision_t;
 
 static void player_general_collision( const tile_t * map, player_t * player );
+static collision_t player_generate_collision( const tile_t * map, const player_t * player, unsigned int type );
 static unsigned int player_is_going_fast( const player_t * player );
 static void player_jump( player_t * player );
 static unsigned int player_slope_physics( const tile_t * map, player_t * player, float ypoint );
@@ -105,7 +130,7 @@ player_t create_player( float x, float y )
 				( color ){ 1.0f, 1.0f, 0.0f, 1.0f }
 			),
 			.ybc_hitpoint = engine_add_graphic(
-				( rect ){ VCXPOINT( x ), VCBXPOINT( y ), 1.0f, 1.0f },
+				( rect ){ VCXPOINT( x ), VCBYPOINT( y ), 1.0f, 1.0f },
 				( color ){ 1.0f, 1.0f, 0.0f, 1.0f }
 			),
 			.ybc2_hitpoint = engine_add_graphic(
@@ -182,7 +207,7 @@ void update_player( tile_t * map, player_t * player )
 	engine_set_graphic_y( player->graphics.ytr_hitpoint, VTYPOINT( player->y, player->h ) );
 
 	engine_set_graphic_x( player->graphics.ybc_hitpoint, VCXPOINT( player->x ) );
-	engine_set_graphic_y( player->graphics.ybc_hitpoint, VCBXPOINT( player->y ) );
+	engine_set_graphic_y( player->graphics.ybc_hitpoint, VCBYPOINT( player->y ) );
 
 	engine_set_graphic_x( player->graphics.ybc2_hitpoint, VCXPOINT( player->x ) );
 	engine_set_graphic_y( player->graphics.ybc2_hitpoint, VBYPOINT( player->y ) );
@@ -193,54 +218,41 @@ void update_player( tile_t * map, player_t * player )
 
 static void player_general_collision( const tile_t * map, player_t * player )
 {
-	// Collect tile coordinates for the player’s various x hit points.
-	const unsigned int hltilex = ( unsigned int )( HLXPOINT( player->x ) / 16.0f );
-	const unsigned int hrtilex = ( unsigned int )( HRXPOINT( player->x ) / 16.0f );
-	const unsigned int hctiley = ( unsigned int )( HCYPOINT( player->y, player->h ) / 16.0f );
-	const unsigned int hbtiley = ( unsigned int )( HBYPOINT( player->y ) / 16.0f );
-	const unsigned int httiley = ( unsigned int )( HTYPOINT( player->y, player->h ) / 16.0f );
-
 	// Solid X collision.
+	const collision_t hrttile = player_generate_collision( map, player, COLLISION_HRT );
 	if
 	(
-		hrtilex < WINDOW_WIDTH_BLOCKS && hrtilex >= 0 &&
-		( ( httiley < WINDOW_HEIGHT_BLOCKS && httiley >= 0 && is_tile_solid( &map[ httiley * WINDOW_WIDTH_BLOCKS + hrtilex ] ) ) ||
-		( hctiley < WINDOW_HEIGHT_BLOCKS && hctiley >= 0 && is_tile_solid( &map[ hctiley * WINDOW_WIDTH_BLOCKS + hrtilex ] ) ) ||
-		( hbtiley < WINDOW_HEIGHT_BLOCKS && hbtiley >= 0 && is_tile_solid( &map[ hbtiley * WINDOW_WIDTH_BLOCKS + hrtilex ] ) ) )
+		is_tile_solid( hrttile.tile ) ||
+		is_tile_solid( player_generate_collision( map, player, COLLISION_HRB ).tile ) ||
+		is_tile_solid( player_generate_collision( map, player, COLLISION_HRC ).tile )
 	)
 	{
-		player->x = ( float )( hrtilex * 16 ) - 15.0f;
+		player->x = ( float )( hrttile.x * 16 ) - 15.0f;
 		if ( player->vx > 0.0f )
 		{
 			player->vx *= -0.25f;
 		}
 	}
-	else if
+	const collision_t hlttile = player_generate_collision( map, player, COLLISION_HLT );
+	if
 	(
-		hltilex < WINDOW_WIDTH_BLOCKS && hltilex >= 0 &&
-		( ( httiley < WINDOW_HEIGHT_BLOCKS && httiley >= 0 && is_tile_solid( &map[ httiley * WINDOW_WIDTH_BLOCKS + hltilex ] ) ) ||
-		( hctiley < WINDOW_HEIGHT_BLOCKS && hctiley >= 0 && is_tile_solid( &map[ hctiley * WINDOW_WIDTH_BLOCKS + hltilex ] ) ) ||
-		( hbtiley < WINDOW_HEIGHT_BLOCKS && hbtiley >= 0 && is_tile_solid( &map[ hbtiley * WINDOW_WIDTH_BLOCKS + hltilex ] ) ) )
+		is_tile_solid( hlttile.tile ) ||
+		is_tile_solid( player_generate_collision( map, player, COLLISION_HLB ).tile ) ||
+		is_tile_solid( player_generate_collision( map, player, COLLISION_HLC ).tile )
 	)
 	{
-		player->x = ( float )( ( hltilex + 1 ) * 16 ) - 1.0f;
+		player->x = ( float )( ( hlttile.x + 1 ) * 16 ) - 1.0f;
 		if ( player->vx < 0.0f )
 		{
 			player->vx *= -0.25f;
 		}
 	}
 
-	// Collect tile coordinates for the player’s various y hit points.
-	const int vttiley = ( int )( VTYPOINT( player->y, player->h ) / 16.0f );
-	const int vbtiley = ( int )( VBYPOINT( player->y ) / 16.0f );
-	const int vltilex = ( int )( VLXPOINT( player->x ) / 16.0f );
-	const int vrtilex = ( int )( VRXPOINT( player->x ) / 16.0f );
-
 	// Handle slope collision.
 	//
 	// We need to check slope collision for both the bottommost player pixel ( so the player lands directly on the slope normally )
 	// & slightly higher so the player moves up slopes when walking up to it.
-	const unsigned int onslope = player_slope_physics( map, player, VCBXPOINT( player->y ) ) ||
+	const unsigned int onslope = player_slope_physics( map, player, VCBYPOINT( player->y ) ) ||
 		player_slope_physics( map, player, VBYPOINT( player->y ) );
 
 	// If we’re sliding, we can skip the rest & go straing to sliding.
@@ -252,22 +264,20 @@ static void player_general_collision( const tile_t * map, player_t * player )
 	// Solid Y collision.
 
 	// Handle climable floor special collision.
+	const collision_t vbltile = player_generate_collision( map, player, COLLISION_VBL );
+	const collision_t vbrtile = player_generate_collision( map, player, COLLISION_VBR );
+	const collision_t vtltile = player_generate_collision( map, player, COLLISION_VTL );
 	if (
-		vbtiley < WINDOW_HEIGHT_BLOCKS && vbtiley >= 0 &&
+		// Only collide with solid-top if falling & interacting with the top o’ the block.
+		player->vy > 0.0f &&
+		( int )( player->y ) % 16 < 4 &&
 		(
-			// Only collide with solid-top if falling & interacting with the top o’ the block.
-			(
-				player->vy > 0.0f &&
-				( int )( player->y ) % 16 < 4 &&
-				(
-					( vltilex < WINDOW_WIDTH_BLOCKS && vltilex >= 0 && is_tile_climb_solid_top( &map[ vbtiley * WINDOW_WIDTH_BLOCKS + vltilex ] ) ) ||
-					( vrtilex < WINDOW_WIDTH_BLOCKS && vrtilex >= 0 && is_tile_climb_solid_top( &map[ vbtiley * WINDOW_WIDTH_BLOCKS + vrtilex ] ) )
-				)
-			)
+			is_tile_climb_solid_top( vbltile.tile ) ||
+			is_tile_climb_solid_top( vbrtile.tile )
 		)
 	)
 	{
-		player->y = ( float )( vbtiley * 16 );
+		player->y = ( float )( vbltile.y * 16 );
 		player->vy = 0.0f;
 		player->accy = 0.0f;
 		player->onground = 1;
@@ -287,23 +297,22 @@ static void player_general_collision( const tile_t * map, player_t * player )
 	// Handle regular floor collision.
 	else if (
 		onslope == 0 &&
-		vbtiley < WINDOW_HEIGHT_BLOCKS && vbtiley >= 0 &&
 		(
-			( vltilex < WINDOW_WIDTH_BLOCKS && vltilex >= 0 && is_tile_solid( &map[ vbtiley * WINDOW_WIDTH_BLOCKS + vltilex ] ) ) ||
-			( vrtilex < WINDOW_WIDTH_BLOCKS && vrtilex >= 0 && is_tile_solid( &map[ vbtiley * WINDOW_WIDTH_BLOCKS + vrtilex ] ) ) ||
+			is_tile_solid( vbltile.tile ) ||
+			is_tile_solid( vbrtile.tile ) ||
 			// Only collide with solid-top if falling & interacting with the top o’ the block.
 			(
 				player->vy > 0.0f &&
 				( int )( player->y ) % 16 < 4 &&
 				(
-					( vltilex < WINDOW_WIDTH_BLOCKS && vltilex >= 0 && is_tile_solid_top( &map[ vbtiley * WINDOW_WIDTH_BLOCKS + vltilex ] ) ) ||
-					( vrtilex < WINDOW_WIDTH_BLOCKS && vrtilex >= 0 && is_tile_solid_top( &map[ vbtiley * WINDOW_WIDTH_BLOCKS + vrtilex ] ) )
+					is_tile_solid_top( vbltile.tile ) ||
+					is_tile_solid_top( vbrtile.tile )
 				)
 			)
 		)
 	)
 	{
-		player->y = ( float )( vbtiley * 16 );
+		player->y = ( float )( vbltile.y * 16 );
 		player->vy = 0.0f;
 		player->accy = 0.0f;
 		player->onground = 1;
@@ -311,12 +320,11 @@ static void player_general_collision( const tile_t * map, player_t * player )
 	}
 	// Handle regular ceiling collision.
 	else if (
-		vttiley < WINDOW_HEIGHT_BLOCKS && vttiley >= 0 &&
-		( ( vltilex < WINDOW_WIDTH_BLOCKS && vltilex >= 0 && is_tile_solid( &map[ vttiley * WINDOW_WIDTH_BLOCKS + vltilex ] ) ) ||
-		( vrtilex < WINDOW_WIDTH_BLOCKS && vrtilex >= 0 && is_tile_solid( &map[ vttiley * WINDOW_WIDTH_BLOCKS + vrtilex ] ) ) )
+		is_tile_solid( vtltile.tile ) ||
+		is_tile_solid( player_generate_collision( map, player, COLLISION_VTR ).tile )
 	)
 	{
-		player->y = ( float )( ( vttiley + 1 ) * 16 ) + player->h - 1.0f;
+		player->y = ( float )( ( vtltile.y + 1 ) * 16 ) + player->h - 1.0f;
 		if ( player->vy < 0.0f )
 		{
 			player->vy *= -0.25f;
@@ -327,19 +335,16 @@ static void player_general_collision( const tile_t * map, player_t * player )
 	else
 	{
 		// Handle sloped ceiling collision.
-		const int vctilex = ( int )( VCXPOINT( player->x ) / 16.0f );
-		if (
-			vttiley < WINDOW_HEIGHT_BLOCKS && vttiley >= 0 &&
-			( vctilex < WINDOW_WIDTH_BLOCKS && vctilex >= 0 && is_tile_ceiling_slope( &map[ vttiley * WINDOW_WIDTH_BLOCKS + vctilex ] ) )
-		)
+		const collision_t vtctile = player_generate_collision( map, player, COLLISION_VTC );
+		if ( is_tile_ceiling_slope( vtctile.tile ) )
 		{
-			const unsigned int relativey = ( unsigned int )( VTYPOINT( player->y, player->h ) ) - vttiley * 16;
+			const unsigned int relativey = ( unsigned int )( VTYPOINT( player->y, player->h ) ) - vtctile.y * 16;
 			const unsigned int relativex = ( unsigned int )( VCXPOINT( player->x ) ) % 16;
-			const tile_t * tile = &map[ vttiley * WINDOW_WIDTH_BLOCKS + vctilex ];
+			const tile_t tile = vtctile.tile;
 			const unsigned int slopey = 16 - ( unsigned int )( get_tile_slope_colision( tile, relativex ) );
 			if ( relativey <= slopey )
 			{
-				player->y = ( float )( vttiley * 16 ) + ( float )( slopey ) + player->h;
+				player->y = ( float )( vtctile.y * 16 ) + ( float )( slopey ) + player->h;
 				if ( player->vy < 0.0f )
 				{
 					player->vy *= -0.25f;
@@ -351,25 +356,116 @@ static void player_general_collision( const tile_t * map, player_t * player )
 	}
 
 	// If touching swimmable tile, set player to swimming.
-	player->isswimming = 0;
+	player->isswimming = is_tile_underwater( hrttile.tile ) ||
+		is_tile_underwater( player_generate_collision( map, player, COLLISION_HLC ).tile ) ||
+		is_tile_underwater( player_generate_collision( map, player, COLLISION_HRC ).tile ) ||
+		is_tile_underwater( player_generate_collision( map, player, COLLISION_HLT ).tile );
+}
+
+static collision_t player_generate_collision( const tile_t * map, const player_t * player, unsigned int type )
+{
+	int tilex = 0;
+	int tiley = 0;
+
+	switch ( type )
+	{
+		case ( COLLISION_HLT ):
+		{
+			tilex = ( int )( HLXPOINT( player->x ) / 16.0f );
+			tiley = ( int )( HTYPOINT( player->y, player->h ) / 16.0f );
+		}
+		break;
+		case ( COLLISION_HLC ):
+		{
+			tilex = ( int )( HLXPOINT( player->x ) / 16.0f );
+			tiley = ( int )( HCYPOINT( player->y, player->h ) / 16.0f );
+		}
+		break;
+		case ( COLLISION_HLB ):
+		{
+			tilex = ( int )( HLXPOINT( player->x ) / 16.0f );
+			tiley = ( int )( HBYPOINT( player->y ) / 16.0f );
+		}
+		break;
+		case ( COLLISION_HRT ):
+		{
+			tilex = ( int )( HRXPOINT( player->x ) / 16.0f );
+			tiley = ( int )( HTYPOINT( player->y, player->h ) / 16.0f );
+		}
+		break;
+		case ( COLLISION_HRC ):
+		{
+			tilex = ( int )( HRXPOINT( player->x ) / 16.0f );
+			tiley = ( int )( HCYPOINT( player->y, player->h ) / 16.0f );
+		}
+		break;
+		case ( COLLISION_HRB ):
+		{
+			tilex = ( int )( HRXPOINT( player->x ) / 16.0f );
+			tiley = ( int )( HBYPOINT( player->y ) / 16.0f );
+		}
+		break;
+		case ( COLLISION_VTL ):
+		{
+			tilex = ( int )( VLXPOINT( player->x ) / 16.0f );
+			tiley = ( int )( VTYPOINT( player->y, player->h ) / 16.0f );
+		}
+		break;
+		case ( COLLISION_VTC ):
+		{
+			tilex = ( int )( VCXPOINT( player->x ) / 16.0f );
+			tiley = ( int )( VTYPOINT( player->y, player->h ) / 16.0f );
+		}
+		break;
+		case ( COLLISION_VTR ):
+		{
+			tilex = ( int )( VRXPOINT( player->x ) / 16.0f );
+			tiley = ( int )( VTYPOINT( player->y, player->h ) / 16.0f );
+		}
+		break;
+		case ( COLLISION_VBL ):
+		{
+			tilex = ( int )( VLXPOINT( player->x ) / 16.0f );
+			tiley = ( int )( VBYPOINT( player->y ) / 16.0f );
+		}
+		break;
+		case ( COLLISION_VBC ):
+		{
+			tilex = ( int )( VCXPOINT( player->x ) / 16.0f );
+			tiley = ( int )( VBYPOINT( player->y ) / 16.0f );
+		}
+		break;
+		case ( COLLISION_VBR ):
+		{
+			tilex = ( int )( VRXPOINT( player->x ) / 16.0f );
+			tiley = ( int )( VBYPOINT( player->y ) / 16.0f );
+		}
+		break;
+		case ( COLLISION_VBCC ):
+		{
+			tilex = ( int )( VCXPOINT( player->x ) / 16.0f );
+			tiley = ( int )( VCBYPOINT( player->y ) / 16.0f );
+		}
+		break;
+	}
+
 	if
 	(
-		hrtilex < WINDOW_WIDTH_BLOCKS && hrtilex >= 0 &&
-		( ( httiley < WINDOW_HEIGHT_BLOCKS && httiley >= 0 && is_tile_underwater( &map[ httiley * WINDOW_WIDTH_BLOCKS + hrtilex ] ) ) ||
-		( hctiley < WINDOW_HEIGHT_BLOCKS && hctiley >= 0 && is_tile_underwater( &map[ hctiley * WINDOW_WIDTH_BLOCKS + hrtilex ] ) ) )
+		tilex < 0 ||
+		tilex >= WINDOW_WIDTH_BLOCKS ||
+		tiley < 0 ||
+		tiley >= WINDOW_HEIGHT_BLOCKS
 	)
 	{
-		player->isswimming = 1;
+		return ( collision_t ){ 0 };
 	}
-	else if
-	(
-		hltilex < WINDOW_WIDTH_BLOCKS && hltilex >= 0 &&
-		( ( httiley < WINDOW_HEIGHT_BLOCKS && httiley >= 0 && is_tile_underwater( &map[ httiley * WINDOW_WIDTH_BLOCKS + hltilex ] ) ) ||
-		( hctiley < WINDOW_HEIGHT_BLOCKS && hctiley >= 0 && is_tile_underwater( &map[ hctiley * WINDOW_WIDTH_BLOCKS + hltilex ] ) ) )
-	)
-	{
-		player->isswimming = 1;
-	}
+
+	return ( collision_t ){
+		.tile = map[ tiley * WINDOW_WIDTH_BLOCKS + tilex ],
+		.x = ( uint16_t )( tilex ),
+		.y = ( uint16_t )( tiley ),
+		.valid = 1
+	};
 }
 
 static unsigned int player_is_going_fast( const player_t * player )
@@ -402,7 +498,7 @@ static unsigned int player_slope_physics( const tile_t * map, player_t * player,
 		return 0;
 	}
 
-	const tile_t * tile = &map[ tiley * WINDOW_WIDTH_BLOCKS + tilex ];
+	const tile_t tile = map[ tiley * WINDOW_WIDTH_BLOCKS + tilex ];
 
 	// Skip non-slope tiles.
 	if ( !is_tile_slope( tile ) )
@@ -611,39 +707,16 @@ static void player_update_climbing( const tile_t * map, player_t * player )
 
 	player_general_collision( map, player );
 
-	const unsigned int hltilex = ( unsigned int )( HLXPOINT( player->x ) / 16.0f );
-	const unsigned int hrtilex = ( unsigned int )( HRXPOINT( player->x ) / 16.0f );
-	const unsigned int hctiley = ( unsigned int )( HCYPOINT( player->y, player->h ) / 16.0f );
-	const unsigned int httiley = ( unsigned int )( HTYPOINT( player->y, player->h ) / 16.0f );
-	const unsigned int hbtiley = ( unsigned int )( HBYPOINT( player->y ) / 16.0f );
-
 	// Make player leave climable state if not touching a climbable tile anymo’ — handle falling off ladder.
-	unsigned int on_climbable = 0;
 	if
 	(
-		hrtilex < WINDOW_WIDTH_BLOCKS && hrtilex >= 0 &&
-		(
-			( httiley < WINDOW_HEIGHT_BLOCKS && httiley >= 0 && is_tile_climbable( &map[ httiley * WINDOW_WIDTH_BLOCKS + hrtilex ] ) ) ||
-			( hctiley < WINDOW_HEIGHT_BLOCKS && hctiley >= 0 && is_tile_climbable( &map[ hctiley * WINDOW_WIDTH_BLOCKS + hrtilex ] ) ) ||
-			( hbtiley < WINDOW_HEIGHT_BLOCKS && hbtiley >= 0 && is_tile_climbable( &map[ hbtiley * WINDOW_WIDTH_BLOCKS + hrtilex ] ) )
-		)
+		!is_tile_climbable( player_generate_collision( map, player, COLLISION_HLT ).tile ) &&
+		!is_tile_climbable( player_generate_collision( map, player, COLLISION_HLB ).tile ) &&
+		!is_tile_climbable( player_generate_collision( map, player, COLLISION_HRT ).tile ) &&
+		!is_tile_climbable( player_generate_collision( map, player, COLLISION_HRB ).tile ) &&
+		!is_tile_climbable( player_generate_collision( map, player, COLLISION_HLC ).tile ) &&
+		!is_tile_climbable( player_generate_collision( map, player, COLLISION_HRC ).tile )
 	)
-	{
-		on_climbable = 1;
-	}
-	else if
-	(
-		hltilex < WINDOW_WIDTH_BLOCKS && hltilex >= 0 &&
-		(
-			( httiley < WINDOW_HEIGHT_BLOCKS && httiley >= 0 && is_tile_climbable( &map[ httiley * WINDOW_WIDTH_BLOCKS + hltilex ] ) ) ||
-			( hctiley < WINDOW_HEIGHT_BLOCKS && hctiley >= 0 && is_tile_climbable( &map[ hctiley * WINDOW_WIDTH_BLOCKS + hltilex ] ) ) ||
-			( hbtiley < WINDOW_HEIGHT_BLOCKS && hbtiley >= 0 && is_tile_climbable( &map[ hbtiley * WINDOW_WIDTH_BLOCKS + hltilex ] ) )
-		)
-	)
-	{
-		on_climbable = 1;
-	}
-	if ( !on_climbable )
 	{
 		player->state = PLAYER_STATE_NORMAL;
 	}
@@ -785,40 +858,23 @@ static void player_update_normal( const tile_t * map, player_t * player )
 
 	player_general_collision( map, player );
 
-	const unsigned int hltilex = ( unsigned int )( HLXPOINT( player->x ) / 16.0f );
-	const unsigned int hrtilex = ( unsigned int )( HRXPOINT( player->x ) / 16.0f );
-	const unsigned int hctiley = ( unsigned int )( HCYPOINT( player->y, player->h ) / 16.0f );
-	const unsigned int hbtiley = ( unsigned int )( HBYPOINT( player->y ) / 16.0f );
-	const unsigned int httiley = ( unsigned int )( HTYPOINT( player->y, player->h ) / 16.0f );
-
 	// Climbable collision.
-	if ( !player->isducking )
+	// If touching climbable tile, and pressing up, start climbing.
+	if
+	(
+		!player->isducking &&
+		input_pressed_up() &&
+		(
+			is_tile_climbable( player_generate_collision( map, player, COLLISION_HLT ).tile ) ||
+			is_tile_climbable( player_generate_collision( map, player, COLLISION_HRT ).tile ) ||
+			is_tile_climbable( player_generate_collision( map, player, COLLISION_HLC ).tile ) ||
+			is_tile_climbable( player_generate_collision( map, player, COLLISION_HRC ).tile )
+		)
+	)
 	{
-		// If touching climbable tile, and pressing up, start climbing.
-		if
-		(
-			hrtilex < WINDOW_WIDTH_BLOCKS && hrtilex >= 0 &&
-			( ( httiley < WINDOW_HEIGHT_BLOCKS && httiley >= 0 && is_tile_climbable( &map[ httiley * WINDOW_WIDTH_BLOCKS + hrtilex ] ) ) ||
-			( hctiley < WINDOW_HEIGHT_BLOCKS && hctiley >= 0 && is_tile_climbable( &map[ hctiley * WINDOW_WIDTH_BLOCKS + hrtilex ] ) ) ) &&
-			input_pressed_up()
-		)
-		{
-			player->state = PLAYER_STATE_CLIMBING;
-			player->vy = 0.0f;
-			player->accy = 0.0f;
-		}
-		else if
-		(
-			hltilex < WINDOW_WIDTH_BLOCKS && hltilex >= 0 &&
-			( ( httiley < WINDOW_HEIGHT_BLOCKS && httiley >= 0 && is_tile_climbable( &map[ httiley * WINDOW_WIDTH_BLOCKS + hltilex ] ) ) ||
-			( hctiley < WINDOW_HEIGHT_BLOCKS && hctiley >= 0 && is_tile_climbable( &map[ hctiley * WINDOW_WIDTH_BLOCKS + hltilex ] ) ) ) &&
-			input_pressed_up()
-		)
-		{
-			player->state = PLAYER_STATE_CLIMBING;
-			player->vy = 0.0f;
-			player->accy = 0.0f;
-		}
+		player->state = PLAYER_STATE_CLIMBING;
+		player->vy = 0.0f;
+		player->accy = 0.0f;
 	}
 
 	// Handle jumping out o’ water.
@@ -828,13 +884,12 @@ static void player_update_normal( const tile_t * map, player_t * player )
 	// so we test that the player is leaving the water from the top.
 	if
 	(
-		hbtiley < WINDOW_WIDTH_BLOCKS && hbtiley >= 0 &&
 		prev_swimming &&
 		!player->isswimming &&
 		player->vy < 0.0f &&
 		(
-			( hbtiley < WINDOW_HEIGHT_BLOCKS && hbtiley >= 0 && is_tile_underwater( &map[ hbtiley * WINDOW_WIDTH_BLOCKS + hltilex ] ) ) ||
-			( hbtiley < WINDOW_HEIGHT_BLOCKS && hbtiley >= 0 && is_tile_underwater( &map[ hbtiley * WINDOW_WIDTH_BLOCKS + hrtilex ] ) )
+			is_tile_underwater( player_generate_collision( map, player, COLLISION_HLB ).tile ) ||
+			is_tile_underwater( player_generate_collision( map, player, COLLISION_HRB ).tile )
 		)
 	)
 	{
@@ -906,7 +961,7 @@ static void player_update_sliding( const tile_t * map, player_t * player )
 			continue;
 		}
 
-		const tile_t * tile = &map[ vbtiley * WINDOW_WIDTH_BLOCKS + vctilex ];
+		const tile_t tile = map[ vbtiley * WINDOW_WIDTH_BLOCKS + vctilex ];
 
 		if ( !is_tile_slope( tile ) )
 		{

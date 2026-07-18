@@ -47,7 +47,7 @@ tile_t create_sloped_tile
 	};
 };
 
-unsigned int get_tile_slope_colision( const tile_t * tile, unsigned int x )
+unsigned int get_tile_slope_colision( tile_t tile, unsigned int x )
 {
 	if ( x > 16 )
 	{
@@ -55,15 +55,15 @@ unsigned int get_tile_slope_colision( const tile_t * tile, unsigned int x )
 	}
 	else if ( x < 6 )
 	{
-		return ( tile->data.slope.data1 >> ( x * 5 ) ) & 0x1F;
+		return ( tile.data.slope.data1 >> ( x * 5 ) ) & 0x1F;
 	}
 	else if ( x < 12 )
 	{
-		return ( tile->data.slope.data2 >> ( ( x - 6 ) * 5 ) ) & 0x1F;
+		return ( tile.data.slope.data2 >> ( ( x - 6 ) * 5 ) ) & 0x1F;
 	}
 	else
 	{
-		return ( tile->data.slope.data3 >> ( ( x - 12 ) * 5 ) ) & 0x1F;
+		return ( tile.data.slope.data3 >> ( ( x - 12 ) * 5 ) ) & 0x1F;
 	}
 };
 
@@ -92,47 +92,47 @@ void make_tile_underwater( tile_t * tile )
 	tile->underwater = 1;
 };
 
-unsigned int is_tile_solid( const tile_t * tile )
+unsigned int is_tile_solid( tile_t tile )
 {
-	return tile->type == TILE_NORMAL && tile->data.normal.subtype == TILE_SOLID;
+	return tile.type == TILE_NORMAL && tile.data.normal.subtype == TILE_SOLID;
 };
 
-unsigned int is_tile_slope( const tile_t * tile )
+unsigned int is_tile_slope( tile_t tile )
 {
-	return tile->type == TILE_SLOPE && !((tile->data.slope.data3 >> 20) & 0x1);
+	return tile.type == TILE_SLOPE && !((tile.data.slope.data3 >> 20) & 0x1);
 };
 
-unsigned int is_tile_ceiling_slope( const tile_t * tile )
+unsigned int is_tile_ceiling_slope( tile_t tile )
 {
-	return tile->type == TILE_SLOPE && ((tile->data.slope.data3 >> 20) & 0x1);
+	return tile.type == TILE_SLOPE && ((tile.data.slope.data3 >> 20) & 0x1);
 };
 
-unsigned int get_tile_slope_steepness( const tile_t * tile )
+unsigned int get_tile_slope_steepness( tile_t tile )
 {
-	return ( tile->data.slope.data3 >> 22 ) & 0x3;
+	return ( tile.data.slope.data3 >> 22 ) & 0x3;
 };
 
-unsigned int get_tile_slope_dirx( const tile_t * tile )
+unsigned int get_tile_slope_dirx( tile_t tile )
 {
-	return ( tile->data.slope.data3 >> 21 ) & 0x1;
+	return ( tile.data.slope.data3 >> 21 ) & 0x1;
 };
 
-unsigned int is_tile_climbable( const tile_t * tile )
+unsigned int is_tile_climbable( tile_t tile )
 {
-	return tile->type == TILE_NORMAL && ( tile->data.normal.subtype == TILE_CLIMB || tile->data.normal.subtype == TILE_CLIMB_SOLID_TOP );
+	return tile.type == TILE_NORMAL && ( tile.data.normal.subtype == TILE_CLIMB || tile.data.normal.subtype == TILE_CLIMB_SOLID_TOP );
 };
 
-unsigned int is_tile_solid_top( const tile_t * tile )
+unsigned int is_tile_solid_top( tile_t tile )
 {
-	return tile->type == TILE_NORMAL && ( tile->data.normal.subtype == TILE_SOLID_TOP || tile->data.normal.subtype == TILE_CLIMB_SOLID_TOP );
+	return tile.type == TILE_NORMAL && ( tile.data.normal.subtype == TILE_SOLID_TOP || tile.data.normal.subtype == TILE_CLIMB_SOLID_TOP );
 };
 
-unsigned int is_tile_climb_solid_top( const tile_t * tile )
+unsigned int is_tile_climb_solid_top( tile_t tile )
 {
-	return tile->type == TILE_NORMAL && tile->data.normal.subtype == TILE_CLIMB_SOLID_TOP;
+	return tile.type == TILE_NORMAL && tile.data.normal.subtype == TILE_CLIMB_SOLID_TOP;
 };
 
-unsigned int is_tile_underwater( const tile_t * tile )
+unsigned int is_tile_underwater( tile_t tile )
 {
-	return tile->underwater;
+	return tile.underwater;
 };
