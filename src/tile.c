@@ -8,10 +8,10 @@ tile_t create_empty_tile()
 tile_t create_sloped_tile
 (
 	unsigned int dirx, unsigned int steepness, unsigned int isceiling,
-	unsigned int l0, unsigned int l1, unsigned int l2, unsigned int l3,
-	unsigned int l4, unsigned int l5, unsigned int l6, unsigned int l7,
-	unsigned int l8, unsigned int l9, unsigned int l10, unsigned int l11,
-	unsigned int l12, unsigned int l13, unsigned int l14, unsigned int l15
+	unsigned int col0, unsigned int col1, unsigned int col2, unsigned int col3,
+	unsigned int col4, unsigned int col5, unsigned int col6, unsigned int col7,
+	unsigned int col8, unsigned int col9, unsigned int col10, unsigned int col11,
+	unsigned int col12, unsigned int col13, unsigned int col14, unsigned int col15
 )
 {
 	return ( tile_t )
@@ -21,24 +21,24 @@ tile_t create_sloped_tile
 			.slope =
 			{
 				.data1 =
-					( l0 << 0 ) |
-					( l1 << 5 ) |
-					( l2 << 10 ) |
-					( l3 << 15 ) |
-					( l4 << 20 ) |
-					( l5 << 25 ),
+					( col0 << 0 ) |
+					( col1 << 5 ) |
+					( col2 << 10 ) |
+					( col3 << 15 ) |
+					( col4 << 20 ) |
+					( col5 << 25 ),
 				.data2 =
-					( l6 << 0 ) |
-					( l7 << 5 ) |
-					( l8 << 10 ) |
-					( l9 << 15 ) |
-					( l10 << 20 ) |
-					( l11 << 25 ),
+					( col6 << 0 ) |
+					( col7 << 5 ) |
+					( col8 << 10 ) |
+					( col9 << 15 ) |
+					( col10 << 20 ) |
+					( col11 << 25 ),
 				.data3 =
-					( l12 << 0 ) |
-					( l13 << 5 ) |
-					( l14 << 10 ) |
-					( l15 << 15 ) |
+					( col12 << 0 ) |
+					( col13 << 5 ) |
+					( col14 << 10 ) |
+					( col15 << 15 ) |
 					( isceiling << 20 ) |
 					( dirx << 21 ) |
 					( steepness << 22 )

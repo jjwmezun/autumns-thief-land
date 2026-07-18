@@ -6,7 +6,7 @@ add_executable(AutumnsThiefLand
     src/engine.c
     src/main.c
     src/map.c
-    src/sprite.c
+    src/player.c
     src/tile.c
 )
 set_property(TARGET AutumnsThiefLand PROPERTY C_STANDARD 23)

@@ -2,7 +2,7 @@
 #include "engine.h"
 #include "map.h"
 #include <stdio.h>
-#include "sprite.h"
+#include "player.h"
 #include "tile.h"
 
 static unsigned int running = 1;
@@ -28,7 +28,7 @@ int main()
 	tile_t * map = create_map();
 
 	// Init player sprite.
-	sprite_t player = create_player( 16.0f, 11.0f );
+	player_t player = create_player( 16.0f, 11.0f );
 
 	add_priority_map_graphics( map );
 

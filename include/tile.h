@@ -69,10 +69,10 @@ tile_t create_empty_tile();
 tile_t create_sloped_tile
 (
 	unsigned int dirx, unsigned int steepness, unsigned int isceiling,
-	unsigned int l0, unsigned int l1, unsigned int l2, unsigned int l3,
-	unsigned int l4, unsigned int l5, unsigned int l6, unsigned int l7,
-	unsigned int l8, unsigned int l9, unsigned int l10, unsigned int l11,
-	unsigned int l12, unsigned int l13, unsigned int l14, unsigned int l15
+	unsigned int col0, unsigned int col1, unsigned int col2, unsigned int col3,
+	unsigned int col4, unsigned int col5, unsigned int col6, unsigned int col7,
+	unsigned int col8, unsigned int col9, unsigned int col10, unsigned int col11,
+	unsigned int col12, unsigned int col13, unsigned int col14, unsigned int col15
 );
 tile_t create_solid_tile();
 tile_t create_climb_tile();

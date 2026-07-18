@@ -1,20 +1,15 @@
-#ifndef SPRITE_H
-#define SPRITE_H
+#ifndef PLAYER_H
+#define PLAYER_H
 
 #include "engine.h"
 #include "tile.h"
 
-#define SLIDE_NONE 0
-#define SLIDE_DUCK 1
-#define SLIDE_LEFT 2
-#define SLIDE_RIGHT 3
+#define PLAYER_STATE_NORMAL      0
+#define PLAYER_STATE_SLIDING     1
+#define PLAYER_STATE_SLIDING_END 2
+#define PLAYER_STATE_CLIMBING    3
 
-#define SPRITE_STATE_NORMAL      0
-#define SPRITE_STATE_SLIDING     1
-#define SPRITE_STATE_SLIDING_END 2
-#define SPRITE_STATE_CLIMBING    3
-
-typedef struct sprite_t {
+typedef struct player_t {
 	float w;
 	float h;
 	float x;
@@ -41,7 +36,7 @@ typedef struct sprite_t {
 	unsigned int isswimming : 1;
 	unsigned int onground : 1;
 	unsigned int jumplock : 1;
-	unsigned int slidestate : 2;
+	unsigned int isducking : 1;
 	unsigned int prevslidingdir : 2;
 	unsigned int state : 2;
 	unsigned int dirx : 1;
@@ -63,9 +58,9 @@ typedef struct sprite_t {
 		graphic_id_t ytm_hitpoint;
 	}
 	graphics;
-} sprite_t;
+} player_t;
 
-sprite_t create_player( float x, float y );
-void update_player( tile_t * map, sprite_t * player );
+player_t create_player( float x, float y );
+void update_player( tile_t * map, player_t * player );
 
-#endif // SPRITE_H
+#endif // PLAYER_H
