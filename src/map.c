@@ -1116,6 +1116,11 @@ tile_t * create_map()
 	map[ 10 * WINDOW_WIDTH_BLOCKS + 29 ] = create_climb_tile();
 	map[ 9 * WINDOW_WIDTH_BLOCKS + 29 ] = create_climb_tile();
 	map[ 3 * WINDOW_WIDTH_BLOCKS + 26 ] = create_climb_solid_top_tile();
+	map[ 13 * WINDOW_WIDTH_BLOCKS + 2 ] = create_bouncy_tile();
+
+	map[ 8 * WINDOW_WIDTH_BLOCKS + 1 ] = create_empty_tile();
+	map[ 8 * WINDOW_WIDTH_BLOCKS + 2 ] = create_empty_tile();
+	map[ 8 * WINDOW_WIDTH_BLOCKS + 3 ] = create_empty_tile();
 
 	/*
 	for ( size_t y = 5; y < WINDOW_HEIGHT_BLOCKS; ++y )
@@ -1132,7 +1137,14 @@ tile_t * create_map()
 		for ( size_t x = 0; x < WINDOW_WIDTH_BLOCKS; ++x )
 		{
 			tile_t tile = map[ y * WINDOW_WIDTH_BLOCKS + x ];
-			if ( is_tile_solid( tile ) )
+			if ( is_tile_bouncy( tile ) )
+			{
+				engine_add_graphic(
+					( rect ){ 16.0f * ( float )( x ), 16.0f * ( float )( y ), 16.0f, 16.0f },
+					( color ){ 1.0f, 0.0f, 0.0f, 1.0f }
+				);
+			}
+			else if ( is_tile_solid( tile ) )
 			{
 				engine_add_graphic(
 					( rect ){ 16.0f * ( float )( x ), 16.0f * ( float )( y ), 16.0f, 16.0f },

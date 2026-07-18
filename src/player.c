@@ -77,6 +77,7 @@ player_t create_player( float x, float y )
 		.startjump = 2.0f,
 		.jumpacc = 0.2f,
 		.maxjump = 3.0f,
+		.bounce = 0.0f,
 		.isjumping = 0,
 		.onground = 0,
 		.jump_padding = 0.0f,
@@ -267,7 +268,18 @@ static void player_general_collision( const tile_t * map, player_t * player )
 	const collision_t vbltile = player_generate_collision( map, player, COLLISION_VBL );
 	const collision_t vbrtile = player_generate_collision( map, player, COLLISION_VBR );
 	const collision_t vtltile = player_generate_collision( map, player, COLLISION_VTL );
-	if (
+	if
+	(
+		is_tile_bouncy( vbltile.tile ) ||
+		is_tile_bouncy( vbrtile.tile )
+	)
+	{
+		player->isjumping = 1;
+		player->bounce = 0.5f;
+		player->vy = -( player->startjump + player->bounce );
+		player->accy = -( player->jumpacc + player->bounce );
+	}
+	else if (
 		// Only collide with solid-top if falling & interacting with the top o’ the block.
 		player->vy > 0.0f &&
 		( int )( player->y ) % 16 < 4 &&
@@ -754,13 +766,13 @@ static void player_update_normal( const tile_t * map, player_t * player )
 	const unsigned int going_fast = player_is_going_fast( player );
 	const float startgravity = player->isswimming
 		? ( input_pressed_jump() ? player->startgravity / 6.0f : player->startgravity / 4.0f )
-		: ( input_pressed_jump() ? player->startgravity / 1.5f : player->startgravity );
+		: ( input_pressed_jump() ? player->startgravity / 1.25f : player->startgravity );
 	const float maxgravity = player->isswimming
 		? ( input_pressed_jump() ? player->maxgravity / 3.0f : player->maxgravity / 2.0f )
-		: ( input_pressed_jump() ? player->maxgravity / 1.5f : player->maxgravity );
-	const float maxjump = player->isswimming
+		: ( input_pressed_jump() ? player->maxgravity / 1.25f : player->maxgravity );
+	const float maxjump = ( player->isswimming
 		? player->maxjump / 3.0f
-		: going_fast ? player->maxjump * 1.1f : player->maxjump;
+		: going_fast ? player->maxjump * 1.1f : player->maxjump ) + player->bounce * 12.0f;
 	const unsigned int can_start_jump = 
 		( player->isswimming || player->jump_padding > 0.0f ) &&
 		!player->jumplock &&
@@ -771,12 +783,13 @@ static void player_update_normal( const tile_t * map, player_t * player )
 	{
 		if ( input_pressed_jump() )
 		{
-			player->accy = -player->jumpacc;
+			player->accy = -( player->jumpacc + player->bounce );
 		}
 		else
 		{
 			player->isjumping = 0;
 			player->accy = 0.0f;
+			player->bounce = 0.0f;
 		}
 	}
 	// Start jump.
@@ -801,6 +814,7 @@ static void player_update_normal( const tile_t * map, player_t * player )
 		player->vy = -maxjump;
 		player->isjumping = 0;
 		player->accy = 0.0f;
+		player->bounce = 0.0f;
 	}
 
 	// Update jump padding.

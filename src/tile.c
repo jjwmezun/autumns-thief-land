@@ -87,6 +87,11 @@ tile_t create_climb_solid_top_tile()
 	return ( tile_t ){ .type = TILE_NORMAL, .data = { .normal = { .subtype = TILE_CLIMB_SOLID_TOP } } };
 };
 
+tile_t create_bouncy_tile()
+{
+	return ( tile_t ){ .type = TILE_NORMAL, .data = { .normal = { .subtype = TILE_BOUNCY } } };
+};
+
 void make_tile_underwater( tile_t * tile )
 {
 	tile->underwater = 1;
@@ -94,7 +99,7 @@ void make_tile_underwater( tile_t * tile )
 
 unsigned int is_tile_solid( tile_t tile )
 {
-	return tile.type == TILE_NORMAL && tile.data.normal.subtype == TILE_SOLID;
+	return tile.type == TILE_NORMAL && ( tile.data.normal.subtype == TILE_SOLID || tile.data.normal.subtype == TILE_BOUNCY );
 };
 
 unsigned int is_tile_slope( tile_t tile )
@@ -135,4 +140,9 @@ unsigned int is_tile_climb_solid_top( tile_t tile )
 unsigned int is_tile_underwater( tile_t tile )
 {
 	return tile.underwater;
+};
+
+unsigned int is_tile_bouncy( tile_t tile )
+{
+	return tile.type == TILE_NORMAL && tile.data.normal.subtype == TILE_BOUNCY;
 };

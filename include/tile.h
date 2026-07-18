@@ -26,6 +26,7 @@
 #define TILE_SPADE		    13
 #define TILE_HEALTH		    14
 #define TILE_FULL_HEALTH    15
+#define TILE_BOUNCY         16
 
 // Slope directions.
 #define TILE_LEFT 0
@@ -79,6 +80,7 @@ tile_t create_climb_tile();
 tile_t create_solid_top_tile();
 tile_t create_solid_top_tile();
 tile_t create_climb_solid_top_tile();
+tile_t create_bouncy_tile();
 void make_tile_underwater( tile_t * tile );
 unsigned int get_tile_slope_colision( tile_t tile, unsigned int x );
 unsigned int is_tile_solid( tile_t tile );
@@ -90,5 +92,6 @@ unsigned int is_tile_climbable( tile_t tile );
 unsigned int is_tile_solid_top( tile_t tile );
 unsigned int is_tile_climb_solid_top( tile_t tile );
 unsigned int is_tile_underwater( tile_t tile );
+unsigned int is_tile_bouncy( tile_t tile );
 
 #endif // TILE_H

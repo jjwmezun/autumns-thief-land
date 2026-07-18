@@ -32,6 +32,7 @@ typedef struct player_t {
 	float jump_padding;
 	float maxslidespeedx;
 	float maxslidespeedy;
+	float bounce;
 	unsigned int isjumping : 1;
 	unsigned int isswimming : 1;
 	unsigned int onground : 1;
