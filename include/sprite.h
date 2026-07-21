@@ -17,6 +17,7 @@
 #define SPRITE_TYPE_BEE_SPIN               9
 #define SPRITE_TYPE_BEE_MOVE_HORIZONTAL   10
 #define SPRITE_TYPE_BEE_MOVE_VERTICAL     11
+#define SPRITE_TYPE_HYDRANT               12
 
 #define SPRITE_DIRX_LEFT  0
 #define SPRITE_DIRX_RIGHT 1
@@ -87,6 +88,12 @@ typedef struct sprite_t
 			unsigned int diry : 1;
 		}
 		pollo;
+		struct
+		{
+			unsigned int awake : 1;
+			float timer;
+		}
+		hydrant;
 	}
 	specific;
 } sprite_t;

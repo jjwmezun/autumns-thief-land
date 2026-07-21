@@ -147,6 +147,15 @@ sprite_t sprite_create( float x, float y, uint8_t type )
 			sprite.specific.bee.dir = 0;
 		}
 		break;
+		case SPRITE_TYPE_HYDRANT:
+			sprite.specific.hydrant.awake = 0;
+			sprite.specific.hydrant.timer = 0.0f;
+			sprite.startjump = 0.5f;
+			sprite.jumpacc = 0.1f;
+			sprite.maxjump = 1.0f;
+			sprite.startspeed = 0.15f;
+			sprite.maxspeed = 1.5f;
+		break;
 		default:
 		break;
 	}
@@ -547,6 +556,18 @@ void sprite_update( tile_t * map, sprite_t * sprite )
 				}
 			}
 			break;
+			case ( SPRITE_TYPE_HYDRANT ):
+			{
+				if ( sprite->specific.hydrant.awake )
+				{
+					sprite->specific.hydrant.timer += 1.0f;
+					if ( sprite->specific.hydrant.timer >= 32.0f )
+					{
+						sprite->specific.hydrant.timer = 32.0f;
+						sprite_jump_when_on_ground( sprite );
+					}
+				}
+			}
 		}
 	}
 

@@ -32,10 +32,10 @@ int main()
 	tile_t * map = create_map();
 
 	// Init player sprite.
-	player_t player = player_create( 16.0f, 15.0f );
+	player_t player = player_create( 6.0f, 16.0f );
 
 	// Init other sprites.
-	sprite_t pollo = sprite_create( 20.0f, 12.0f, SPRITE_TYPE_POLLO_MOVE_VERTICAL );
+	sprite_t sprite = sprite_create( 20.0f, 16.0f, SPRITE_TYPE_HYDRANT );
 
 	add_priority_map_graphics( map );
 
@@ -61,10 +61,10 @@ int main()
 
 		// Update sprites.
         player_update( map, &player );
-		sprite_update( map, &pollo );
+		sprite_update( map, &sprite );
 
 		// Handle sprite interaction.
-		player_interact_with_sprite( &player, &pollo );
+		player_interact_with_sprite( &player, &sprite );
 
 		engine_render();
 

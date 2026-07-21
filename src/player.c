@@ -46,6 +46,7 @@ static void player_general_collision( const tile_t * map, player_t * player );
 static collision_t player_generate_collision( const tile_t * map, const player_t * player, unsigned int type );
 static unsigned int player_is_going_fast( const player_t * player );
 static void player_jump( player_t * player );
+static void player_move_sprite_toward_player_x( player_t * player, sprite_t * sprite );
 static unsigned int player_slope_physics( const tile_t * map, player_t * player, float ypoint );
 static unsigned int player_test_bop_sprite( player_t * player, sprite_t * sprite, float padding );
 static unsigned int player_test_top_collision( player_t * player, sprite_t * sprite, float padding );
@@ -189,17 +190,7 @@ void player_interact_with_sprite( player_t * player, sprite_t * sprite )
 		break;
 		case ( SPRITE_TYPE_CRAB ):
 		{
-			if ( player->x + player->w / 2.0f < sprite->x + sprite->w / 2.0f )
-			{
-				sprite->accx = -sprite->startspeed;
-				sprite->dirx = SPRITE_DIRX_LEFT;
-			}
-			else
-			{
-				sprite->accx = sprite->startspeed;
-				sprite->dirx = SPRITE_DIRX_RIGHT;
-			}
-
+			player_move_sprite_toward_player_x( player, sprite );
 			player_test_sprite_harm( player, sprite );
 		}
 		break;
@@ -229,6 +220,32 @@ void player_interact_with_sprite( player_t * player, sprite_t * sprite )
 		case ( SPRITE_TYPE_BEE_MOVE_VERTICAL ):
 		{
 			player_test_sprite_harm( player, sprite );
+		}
+		break;
+		case ( SPRITE_TYPE_HYDRANT ):
+		{
+			if ( sprite->specific.hydrant.timer >= 32.0f )
+			{
+				player_move_sprite_toward_player_x( player, sprite );
+				if ( !player_test_bop_sprite( player, sprite, 8.0f ) )
+				{
+					player_test_sprite_harm( player, sprite );
+				}
+			}
+			else
+			{
+				// Awaken when player gets near.
+				if
+				(
+					player->x + player->w > sprite->x - 64.0f &&
+					player->x < sprite->x + sprite->w + 64.0f &&
+					player->y + player->h > sprite->y - 64.0f &&
+					player->y < sprite->y + sprite->h + 64.0f
+				)
+				{
+					sprite->specific.hydrant.awake = 1;
+				}
+			}
 		}
 		break;
 	}
@@ -571,6 +588,20 @@ static collision_t player_generate_collision( const tile_t * map, const player_t
 		.y = ( uint16_t )( tiley ),
 		.valid = 1
 	};
+}
+
+static void player_move_sprite_toward_player_x( player_t * player, sprite_t * sprite )
+{
+	if ( player->x + player->w / 2.0f < sprite->x + sprite->w / 2.0f )
+	{
+		sprite->accx = -sprite->startspeed;
+		sprite->dirx = SPRITE_DIRX_LEFT;
+	}
+	else
+	{
+		sprite->accx = sprite->startspeed;
+		sprite->dirx = SPRITE_DIRX_RIGHT;
+	}
 }
 
 static unsigned int player_is_going_fast( const player_t * player )
