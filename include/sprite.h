@@ -5,8 +5,15 @@
 #include <stdint.h>
 #include "tile.h"
 
-#define SPRITE_TYPE_APPLE 0
-#define SPRITE_TYPE_POLLO 1
+#define SPRITE_TYPE_PLAYER              0
+#define SPRITE_TYPE_APPLE               1
+#define SPRITE_TYPE_POLLO               2
+#define SPRITE_TYPE_CRAB                3
+#define SPRITE_TYPE_TRUCK               4
+#define SPRITE_TYPE_BEE                 5
+#define SPRITE_TYPE_BEE_SPIN            6
+#define SPRITE_TYPE_BEE_MOVE_HORIZONTAL 7
+#define SPRITE_TYPE_BEE_MOVE_VERTICAL   8
 
 #define SPRITE_DIRX_LEFT  0
 #define SPRITE_DIRX_RIGHT 1
@@ -34,6 +41,8 @@ typedef struct sprite_t
     unsigned int isunderwater : 1;
 	unsigned int dirx : 1;
 	unsigned int isdead : 1;
+	unsigned int isairborne : 1;
+	unsigned int interacts_with_map : 1;
 	unsigned int collided_left_solid : 1;
 	unsigned int collided_right_solid : 1;
 	unsigned int collided_left_slope : 1;
@@ -57,6 +66,18 @@ typedef struct sprite_t
 		graphic_id_t slopepoint;
 	}
 	graphics;
+	union
+	{
+		struct
+		{
+			float origx;
+			float origy;
+			float angle;
+			unsigned int dir : 1;
+		}
+		bee;
+	}
+	specific;
 } sprite_t;
 
 sprite_t sprite_create( float x, float y, uint8_t type );

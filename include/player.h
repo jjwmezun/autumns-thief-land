@@ -21,7 +21,6 @@ typedef struct player_t {
 	float accx;
 	float accy;
 	float startspeedx;
-	float startspeedy;
 	float maxspeedx;
 	float maxspeedy;
 	float friction;

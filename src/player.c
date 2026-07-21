@@ -47,6 +47,9 @@ static collision_t player_generate_collision( const tile_t * map, const player_t
 static unsigned int player_is_going_fast( const player_t * player );
 static void player_jump( player_t * player );
 static unsigned int player_slope_physics( const tile_t * map, player_t * player, float ypoint );
+static unsigned int player_test_bop_sprite( player_t * player, sprite_t * sprite );
+static unsigned int player_test_top_collision( player_t * player, sprite_t * sprite );
+static void player_test_sprite_harm( player_t * player, sprite_t * sprite );
 static void player_update_climbing( const tile_t * map, player_t * player );
 static void player_update_normal( const tile_t * map, player_t * player );
 static void player_update_sliding( const tile_t * map, player_t * player );
@@ -73,7 +76,6 @@ player_t player_create( float x, float y )
 		.maxspeedx = 2.0f,
 		.maxspeedy = 2.0f,
 		.startspeedx = 0.1f,
-		.startspeedy = 0.1f,
 		.friction = 0.25f,
 		.startgravity = 0.1f,
 		.maxgravity = 3.0f,
@@ -157,30 +159,68 @@ void player_interact_with_sprite( player_t * player, sprite_t * sprite )
 		return;
 	}
 
-	// Test for bopping the sprite on the head,
-	// & if so, bounce off the enemy & kill it.
-	if
-	(
-		player->vy > 0.0f &&
-		player->y < sprite->y - sprite->h + 8.0f &&
-		player->y > sprite->y - sprite->h &&
-		player->x + player->w > sprite->x &&
-		player->x < sprite->x + sprite->w
-	)
+	switch ( sprite->type )
 	{
-		player_bounce( player, 0.25f );
-		sprite->isdead = 1;
-	}
-	// Otherwise check for other collision, which will hurt the player.
-	else if
-	(
-		player->y - sprite->h < sprite->y &&
-		player->y > sprite->y - sprite->h &&
-		player->x + player->w > sprite->x &&
-		player->x < sprite->x + sprite->w
-	)
-	{
-		printf( "¡OUCH!\n" );
+		case ( SPRITE_TYPE_APPLE ):
+		{
+			if ( !player_test_bop_sprite( player, sprite ) )
+			{
+				player_test_sprite_harm( player, sprite );
+			}
+		}
+		break;
+		case ( SPRITE_TYPE_POLLO ):
+		{
+			if ( !player_test_bop_sprite( player, sprite ) )
+			{
+				player_test_sprite_harm( player, sprite );
+			}
+		}
+		break;
+		case ( SPRITE_TYPE_CRAB ):
+		{
+			if ( player->x + player->w / 2.0f < sprite->x + sprite->w / 2.0f )
+			{
+				sprite->accx = -sprite->startspeed;
+				sprite->dirx = SPRITE_DIRX_LEFT;
+			}
+			else
+			{
+				sprite->accx = sprite->startspeed;
+				sprite->dirx = SPRITE_DIRX_RIGHT;
+			}
+
+			player_test_sprite_harm( player, sprite );
+		}
+		break;
+		case ( SPRITE_TYPE_TRUCK ):
+		{
+			// Stand on truck if the player lands on it
+			if ( player_test_top_collision( player, sprite ) )
+			{
+				player->y = sprite->y - sprite->h;
+				player->vy = 0.0f;
+				player->accy = 0.0f;
+				player->onground = 1;
+				player->jump_padding = player_is_going_fast( player ) ? 16.0f : 2.0f;
+
+				// Move player with truck.
+				player->x += sprite->vx;
+			}
+			else 
+			{
+				player_test_sprite_harm( player, sprite );
+			}
+		}
+		break;
+		case ( SPRITE_TYPE_BEE ):
+		case ( SPRITE_TYPE_BEE_SPIN ):
+		case ( SPRITE_TYPE_BEE_MOVE_HORIZONTAL ):
+		case ( SPRITE_TYPE_BEE_MOVE_VERTICAL ):
+		{
+			player_test_sprite_harm( player, sprite );
+		}
+		break;
 	}
 }
 
@@ -691,6 +731,46 @@ static unsigned int player_slope_physics( const tile_t * map, player_t * player,
 	}
 
 	return 1;
+}
+
+static unsigned int player_test_bop_sprite( player_t * player, sprite_t * sprite )
+{
+	// Test for bopping the sprite on the head,
+	// & if so, bounce off the enemy & kill it.
+	if ( player_test_top_collision( player, sprite ) )
+	{
+		player_bounce( player, 0.25f );
+		sprite->isdead = 1;
+		return 1;
+	}
+	return 0;
+}
+
+static void player_test_sprite_harm( player_t * player, sprite_t * sprite )
+{
+	// Test for sprite harming the player.
+	if
+	(
+		player->y - sprite->h < sprite->y &&
+		player->y > sprite->y - sprite->h &&
+		player->x + player->w > sprite->x &&
+		player->x < sprite->x + sprite->w
+	)
+	{
+		printf( "¡OUCH!\n" );
+	}
+}
+
+static unsigned int player_test_top_collision( player_t * player, sprite_t * sprite )
+{
+	return
+	(
+		player->vy > 0.0f &&
+		player->y < sprite->y - sprite->h + 8.0f &&
+		player->y > sprite->y - sprite->h &&
+		player->x + player->w > sprite->x &&
+		player->x < sprite->x + sprite->w
+	);
 }
 
 static void player_update_climbing( const tile_t * map, player_t * player )

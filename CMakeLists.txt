@@ -7,6 +7,7 @@ add_executable(AutumnsThiefLand
     src/main.c
     src/map.c
     src/player.c
+    src/rand.c
     src/sprite.c
     src/tile.c
 )
