@@ -5,9 +5,19 @@
 #include <stdint.h>
 #include "tile.h"
 
-#define SPRITE_TYPE_PLAYER 0
-#define SPRITE_TYPE_APPLE  1
-#define SPRITE_TYPE_POLLO  2
+#define SPRITE_TYPE_PLAYER                 0
+#define SPRITE_TYPE_APPLE                  1
+#define SPRITE_TYPE_POLLO_STILL            2
+#define SPRITE_TYPE_POLLO_SPIN             3
+#define SPRITE_TYPE_POLLO_MOVE_HORIZONTAL  4
+#define SPRITE_TYPE_POLLO_MOVE_VERTICAL    5
+#define SPRITE_TYPE_CRAB                   6
+#define SPRITE_TYPE_TRUCK                  7
+#define SPRITE_TYPE_BEE_STILL              8
+#define SPRITE_TYPE_BEE_SPIN               9
+#define SPRITE_TYPE_BEE_MOVE_HORIZONTAL   10
+#define SPRITE_TYPE_BEE_MOVE_VERTICAL     11
+#define SPRITE_TYPE_HYDRANT               12
 
 #define SPRITE_DIRX_LEFT  0
 #define SPRITE_DIRX_RIGHT 1
@@ -36,6 +46,8 @@ typedef struct sprite_t
     unsigned int isunderwater : 1;
 	unsigned int dirx : 1;
 	unsigned int isdead : 1;
+	unsigned int isairborne : 1;
+	unsigned int interacts_with_map : 1;
 	unsigned int collided_left_solid : 1;
 	unsigned int collided_right_solid : 1;
 	unsigned int collided_left_slope : 1;
@@ -68,6 +80,28 @@ typedef struct sprite_t
 			unsigned int isducking : 1;
 		}
 		player;
+		struct
+		{
+			float origx;
+			float origy;
+			float angle;
+			unsigned int dir : 1;
+		}
+		bee;
+		struct
+		{
+			float origx;
+			float origy;
+			float angle;
+			unsigned int diry : 1;
+		}
+		pollo;
+		struct
+		{
+			unsigned int awake : 1;
+			float timer;
+		}
+		hydrant;
 	}
 	specific;
 } sprite_t;

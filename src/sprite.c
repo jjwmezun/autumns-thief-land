@@ -1,4 +1,6 @@
 #include "config.h"
+#include <math.h>
+#include "rand.h"
 #include "sprite.h"
 #include <string.h>
 
@@ -41,30 +43,6 @@ sprite_t sprite_create( float x, float y, uint8_t type )
 	float w = 16.0f;
 	float h = 16.0f;
 
-	switch ( type )
-	{
-		case SPRITE_TYPE_PLAYER:
-		{
-			w = 16.0f;
-			h = 26.0f;
-		}
-		break;
-		case SPRITE_TYPE_APPLE:
-		{
-			w = 16.0f;
-			h = 16.0f;
-		}
-		break;
-		case SPRITE_TYPE_POLLO:
-		{
-			w = 16.0f;
-			h = 26.0f;
-		}
-		break;
-		default:
-		break;
-	}
-
 	sprite_t sprite = ( sprite_t ){
 		.w = w,
 		.h = h,
@@ -88,6 +66,8 @@ sprite_t sprite_create( float x, float y, uint8_t type )
 		.isunderwater = 0,
 		.dirx = SPRITE_DIRX_LEFT,
 		.isdead = 0,
+		.isairborne = 0,
+		.interacts_with_map = 1,
 		.collided_left_solid = 0,
 		.collided_left_slope = 0,
 		.collided_right_solid = 0,
@@ -105,24 +85,92 @@ sprite_t sprite_create( float x, float y, uint8_t type )
 	{
 		case SPRITE_TYPE_PLAYER:
 		{
+			sprite.w = 16.0f;
+			sprite.h = 26.0f;
 			sprite.specific.player.startspeed = 0.1f;
 			sprite.specific.player.maxspeed = 1.0f;
 		}
 		break;
 		case SPRITE_TYPE_APPLE:
 		{
+			sprite.startspeed = 0.05f;
+			sprite.maxspeed = 0.5f;
 		}
 		break;
-		case SPRITE_TYPE_POLLO:
+		case SPRITE_TYPE_POLLO_STILL:
+		{
+			sprite.w = 16.0f;
+			sprite.h = 26.0f;
+		}
+		break;
+		case SPRITE_TYPE_POLLO_SPIN:
+		{
+			sprite.w = 16.0f;
+			sprite.h = 26.0f;
+			sprite.hitbox.bpadding = 1.0f;
+			sprite.isairborne = 1;
+			sprite.interacts_with_map = 0;
+			sprite.specific.pollo.origx = sprite.x + sprite.w / 2.0f;
+			sprite.specific.pollo.origy = sprite.y + sprite.h / 4.0f;
+			sprite.specific.pollo.angle = 0.0f;
+			sprite.specific.pollo.diry = 0;
+		}
+		break;
+		case SPRITE_TYPE_POLLO_MOVE_HORIZONTAL:
+		case SPRITE_TYPE_POLLO_MOVE_VERTICAL:
+		{
+			sprite.w = 16.0f;
+			sprite.h = 26.0f;
+			sprite.hitbox.bpadding = 1.0f;
+			sprite.isairborne = 1;
+			sprite.interacts_with_map = 0;
+			sprite.specific.pollo.origx = sprite.x;
+			sprite.specific.pollo.origy = sprite.y;
+			sprite.specific.pollo.angle = 0.0f;
+			sprite.specific.pollo.diry = 0;
+		}
+		break;
+		case SPRITE_TYPE_CRAB:
 		{
 		}
+		break;
+		case SPRITE_TYPE_TRUCK:
+		{
+			sprite.w = 40;
+			sprite.h = 32;
+		}
+		break;
+		case SPRITE_TYPE_BEE_STILL:
+		case SPRITE_TYPE_BEE_SPIN:
+		case SPRITE_TYPE_BEE_MOVE_HORIZONTAL:
+		case SPRITE_TYPE_BEE_MOVE_VERTICAL:
+		{
+			sprite.w = 24.0f;
+			sprite.h = 24.0f;
+			sprite.hitbox.bpadding = 1.0f;
+			sprite.isairborne = 1;
+			sprite.interacts_with_map = 0;
+			sprite.specific.bee.origx = sprite.x;
+			sprite.specific.bee.origy = sprite.y;
+			sprite.specific.bee.angle = 0.0f;
+			sprite.specific.bee.dir = 0;
+		}
+		break;
+		case SPRITE_TYPE_HYDRANT:
+			sprite.specific.hydrant.awake = 0;
+			sprite.specific.hydrant.timer = 0.0f;
+			sprite.startjump = 0.5f;
+			sprite.jumpacc = 0.1f;
+			sprite.maxjump = 1.0f;
+			sprite.startspeed = 0.15f;
+			sprite.maxspeed = 1.5f;
 		break;
 		default:
 		break;
 	}
 
 	sprite.graphics.rect = engine_add_graphic(
-		( rect ){ x, y, w, h },
+		( rect ){ sprite.x, sprite.y, sprite.w, sprite.h },
 		( color ){ 1.0f, 0.0f, 0.0f, 1.0f }
 	);
 	sprite.graphics.lcollision = engine_add_graphic(
@@ -134,7 +182,7 @@ sprite_t sprite_create( float x, float y, uint8_t type )
 		( color ){ 0.0f, 0.5f, 0.5f, 1.0f }
 	);
 	sprite.graphics.bcollision = engine_add_graphic(
-		( rect ){ BOUNDTBX( &sprite ), BOUNDBY( &sprite ), BOUNDTBW( &sprite ), 1.0f },
+		( rect ){ BOUNDTBX( &sprite ), BOUNDBY( &sprite ) - 1.0f, BOUNDTBW( &sprite ), 1.0f },
 		( color ){ 0.0f, 0.5f, 0.5f, 1.0f }
 	);
 	sprite.graphics.tcollision = engine_add_graphic(
@@ -171,28 +219,31 @@ void sprite_update( tile_t * map, sprite_t * sprite )
 		sprite->onground = 0;
 
 		// Handle falling & jumping.
-		const float startgravity = sprite->isunderwater ? sprite->startgravity * 0.5f : sprite->startgravity;
-		const float maxgravity = sprite->isunderwater ? sprite->maxgravity * 0.5f : sprite->maxgravity;
-		const float maxjump = sprite->maxjump + sprite->bounce * 12.0f;
-		if ( sprite->isjumping )
+		if ( !sprite->isairborne )
 		{
-			sprite->accy = -( sprite->jumpacc + sprite->bounce );
-		}
-		else
-		{
-			sprite->accy = startgravity;
-		}
-		sprite->vy += sprite->accy;
-		if ( sprite->vy > maxgravity )
-		{
-			sprite->vy = maxgravity;
-		}
-		else if ( sprite->vy < -maxjump )
-		{
-			sprite->vy = -maxjump;
-			sprite->isjumping = 0;
-			sprite->accy = 0.0f;
-			sprite->bounce = 0.0f;
+			const float startgravity = sprite->isunderwater ? sprite->startgravity * 0.5f : sprite->startgravity;
+			const float maxgravity = sprite->isunderwater ? sprite->maxgravity * 0.5f : sprite->maxgravity;
+			const float maxjump = sprite->maxjump + sprite->bounce * 12.0f;
+			if ( sprite->isjumping )
+			{
+				sprite->accy = -( sprite->jumpacc + sprite->bounce );
+			}
+			else
+			{
+				sprite->accy = startgravity;
+			}
+			sprite->vy += sprite->accy;
+			if ( sprite->vy > maxgravity )
+			{
+				sprite->vy = maxgravity;
+			}
+			else if ( sprite->vy < -maxjump )
+			{
+				sprite->vy = -maxjump;
+				sprite->isjumping = 0;
+				sprite->accy = 0.0f;
+				sprite->bounce = 0.0f;
+			}
 		}
 		sprite->y += sprite->vy;
 
@@ -217,109 +268,113 @@ void sprite_update( tile_t * map, sprite_t * sprite )
 		}
 		sprite->x += sprite->vx;
 
-		// Handle X collision.
-		collision_t left_solid_collision = sprite_test_left_collision( map, sprite, is_tile_solid );
-		if ( left_solid_collision.valid )
+		// Handle map collision.
+		if ( sprite->interacts_with_map )
 		{
-			sprite->x = ( float )( ( left_solid_collision.x + 1 ) * 16 ) - 1.0f;
-			if ( sprite->vx < 0.0f )
+			// Handle X collision.
+			collision_t left_solid_collision = sprite_test_left_collision( map, sprite, is_tile_solid );
+			if ( left_solid_collision.valid )
 			{
-				sprite->vx *= -0.25f;
-			}
-			sprite->collided_left_solid = 1;
-		}
-		else
-		{
-			collision_t right_solid_collision = sprite_test_right_collision( map, sprite, is_tile_solid );
-			if ( right_solid_collision.valid )
-			{
-				sprite->x = ( float )( right_solid_collision.x * 16 ) - sprite->w + 1.0f;
-				if ( sprite->vx > 0.0f )
+				sprite->x = ( float )( ( left_solid_collision.x + 1 ) * 16 ) - 1.0f;
+				if ( sprite->vx < 0.0f )
 				{
 					sprite->vx *= -0.25f;
 				}
-				sprite->collided_right_solid = 1;
+				sprite->collided_left_solid = 1;
 			}
-		}
-
-		// Handle slope collision.
-		//
-		// We need to check slope collision for both the bottommost sprite pixel ( so the sprite lands directly on the slope normally )
-		// & slightly higher so the sprite moves up slopes when walking up to it.
-		const unsigned int onslope = sprite_slope_physics( map, sprite, SLOPEPOINTY( sprite ) ) ||
-			sprite_slope_physics( map, sprite, BOUNDBY( sprite ) );
-
-		// Handle bottom collision.
-		collision_t bottom_bouncy_collision = sprite_test_bottom_collision( map, sprite, is_tile_bouncy );
-		if ( bottom_bouncy_collision.valid )
-		{
-			sprite->isjumping = 1;
-			sprite->bounce = 0.5f;
-			sprite->vy = -( sprite->startjump + sprite->bounce );
-			sprite->accy = -( sprite->jumpacc + sprite->bounce );
-		}
-		else if ( ! onslope )
-		{
-			collision_t bottom_solid_collision = sprite_test_bottom_collision( map, sprite, is_tile_solid );
-			if ( bottom_solid_collision.valid )
+			else
 			{
-				sprite->y = ( float )( bottom_solid_collision.y * 16 );
-				sprite->vy = 0.0f;
-				sprite->accy = 0.0f;
-				sprite->onground = 1;
-			}
-			else if ( sprite->vy > 0.0f && ( int )( sprite->y ) % 16 < 4 )
-			{
-				collision_t bottom_top_solid_collision = sprite_test_bottom_collision( map, sprite, is_tile_solid_top );
-				if ( bottom_top_solid_collision.valid )
+				collision_t right_solid_collision = sprite_test_right_collision( map, sprite, is_tile_solid );
+				if ( right_solid_collision.valid )
 				{
-					sprite->y = ( float )( bottom_top_solid_collision.y * 16 );
+					sprite->x = ( float )( right_solid_collision.x * 16 ) - sprite->w + 1.0f;
+					if ( sprite->vx > 0.0f )
+					{
+						sprite->vx *= -0.25f;
+					}
+					sprite->collided_right_solid = 1;
+				}
+			}
+
+			// Handle slope collision.
+			//
+			// We need to check slope collision for both the bottommost sprite pixel ( so the sprite lands directly on the slope normally )
+			// & slightly higher so the sprite moves up slopes when walking up to it.
+			const unsigned int onslope = sprite_slope_physics( map, sprite, SLOPEPOINTY( sprite ) ) ||
+				sprite_slope_physics( map, sprite, BOUNDBY( sprite ) );
+
+			// Handle bottom collision.
+			collision_t bottom_bouncy_collision = sprite_test_bottom_collision( map, sprite, is_tile_bouncy );
+			if ( bottom_bouncy_collision.valid )
+			{
+				sprite->isjumping = 1;
+				sprite->bounce = 0.5f;
+				sprite->vy = -( sprite->startjump + sprite->bounce );
+				sprite->accy = -( sprite->jumpacc + sprite->bounce );
+			}
+			else if ( ! onslope )
+			{
+				collision_t bottom_solid_collision = sprite_test_bottom_collision( map, sprite, is_tile_solid );
+				if ( bottom_solid_collision.valid )
+				{
+					sprite->y = ( float )( bottom_solid_collision.y * 16 );
 					sprite->vy = 0.0f;
 					sprite->accy = 0.0f;
 					sprite->onground = 1;
 				}
-			}
-		}
-
-		// Handle top collision.
-		const collision_t top_solid_collision = sprite_test_top_collision( map, sprite, is_tile_solid );
-		if ( top_solid_collision.valid )
-		{
-			sprite->y = ( float )( (top_solid_collision.y + 1 ) * 16 ) + sprite->h - 1.0f;
-			if ( sprite->vy < 0.0f )
-			{
-				sprite->vy *= -0.25f;
-			}
-			sprite->accy = 0.0f;
-			sprite->isjumping = 0;
-		}
-		else
-		{
-			// Handle sloped ceiling collision.
-			const collision_t ceiling_top_collision = sprite_test_top_collision( map, sprite, is_tile_ceiling_slope );
-			if ( ceiling_top_collision.valid )
-			{
-				const unsigned int relativey = ( unsigned int )( SLOPEPOINTX( sprite ) ) - ceiling_top_collision.y * 16;
-				const unsigned int relativex = ( unsigned int )( BOUNDTY( sprite ) ) % 16;
-				const tile_t tile = ceiling_top_collision.tile;
-				const unsigned int slopey = 16 - ( unsigned int )( get_tile_slope_colision( tile, relativex ) );
-				if ( relativey <= slopey )
+				else if ( sprite->vy > 0.0f && ( int )( sprite->y ) % 16 < 4 )
 				{
-					sprite->y = ( float )( ceiling_top_collision.y * 16 ) + ( float )( slopey ) + sprite->h;
-					if ( sprite->vy < 0.0f )
+					collision_t bottom_top_solid_collision = sprite_test_bottom_collision( map, sprite, is_tile_solid_top );
+					if ( bottom_top_solid_collision.valid )
 					{
-						sprite->vy *= -0.25f;
+						sprite->y = ( float )( bottom_top_solid_collision.y * 16 );
+						sprite->vy = 0.0f;
+						sprite->accy = 0.0f;
+						sprite->onground = 1;
 					}
-					sprite->accy = 0.0f;
-					sprite->isjumping = 0;
 				}
 			}
-		}
 
-		// Test if underwater.
-		sprite->isunderwater = sprite_test_bottom_collision( map, sprite, is_tile_underwater ).valid ||
-			sprite_test_left_collision( map, sprite, is_tile_underwater ).valid ||
-			sprite_test_right_collision( map, sprite, is_tile_underwater ).valid;
+			// Handle top collision.
+			const collision_t top_solid_collision = sprite_test_top_collision( map, sprite, is_tile_solid );
+			if ( top_solid_collision.valid )
+			{
+				sprite->y = ( float )( (top_solid_collision.y + 1 ) * 16 ) + sprite->h - 1.0f;
+				if ( sprite->vy < 0.0f )
+				{
+					sprite->vy *= -0.25f;
+				}
+				sprite->accy = 0.0f;
+				sprite->isjumping = 0;
+			}
+			else
+			{
+				// Handle sloped ceiling collision.
+				const collision_t ceiling_top_collision = sprite_test_top_collision( map, sprite, is_tile_ceiling_slope );
+				if ( ceiling_top_collision.valid )
+				{
+					const unsigned int relativey = ( unsigned int )( SLOPEPOINTX( sprite ) ) - ceiling_top_collision.y * 16;
+					const unsigned int relativex = ( unsigned int )( BOUNDTY( sprite ) ) % 16;
+					const tile_t tile = ceiling_top_collision.tile;
+					const unsigned int slopey = 16 - ( unsigned int )( get_tile_slope_colision( tile, relativex ) );
+					if ( relativey <= slopey )
+					{
+						sprite->y = ( float )( ceiling_top_collision.y * 16 ) + ( float )( slopey ) + sprite->h;
+						if ( sprite->vy < 0.0f )
+						{
+							sprite->vy *= -0.25f;
+						}
+						sprite->accy = 0.0f;
+						sprite->isjumping = 0;
+					}
+				}
+			}
+
+			// Test if underwater.
+			sprite->isunderwater = sprite_test_bottom_collision( map, sprite, is_tile_underwater ).valid ||
+				sprite_test_left_collision( map, sprite, is_tile_underwater ).valid ||
+				sprite_test_right_collision( map, sprite, is_tile_underwater ).valid;
+		}
 
 		switch ( sprite->type )
 		{
@@ -379,13 +434,203 @@ void sprite_update( tile_t * map, sprite_t * sprite )
 				sprite_turn_on_collision( sprite );
 			}
 			break;
-			case ( SPRITE_TYPE_POLLO ):
+			case ( SPRITE_TYPE_POLLO_STILL ):
 			{
 				sprite_move_in_direction( sprite );
 				sprite_turn_on_collision( sprite );
 				sprite_jump_when_on_ground( sprite );
 			}
 			break;
+			case ( SPRITE_TYPE_POLLO_SPIN ):
+			{
+				sprite->x = ( sprite->specific.pollo.origx + cosf( sprite->specific.pollo.angle ) * 64.0f ) - ( sprite->w / 2.0f );
+				sprite->y = ( sprite->specific.pollo.origy + sinf( sprite->specific.pollo.angle ) * 64.0f ) - ( sprite->h / 4.0f );
+				sprite->specific.pollo.angle += 0.05f;
+			}
+			break;
+			case ( SPRITE_TYPE_POLLO_MOVE_HORIZONTAL ):
+			{
+				switch ( sprite->dirx )
+				{
+					case ( SPRITE_DIRX_LEFT ):
+					{
+						sprite->accx = -sprite->startspeed;
+						if ( sprite->x < sprite->specific.pollo.origx - 64.0f )
+						{
+							sprite->dirx = SPRITE_DIRX_RIGHT;
+						}
+					}
+					break;
+					case ( SPRITE_DIRX_RIGHT ):
+					{
+						sprite->accx = sprite->startspeed;
+						if ( sprite->x > sprite->specific.pollo.origx + 64.0f )
+						{
+							sprite->dirx = SPRITE_DIRX_LEFT;
+						}
+					}
+					break;
+				}
+
+				// Flutter up & down a bit.
+				switch ( sprite->specific.pollo.diry )
+				{
+					case ( SPRITE_DIRX_LEFT ):
+					{
+						sprite->accy = -0.01f;
+						if ( sprite->y < sprite->specific.pollo.origy - 1.0f )
+						{
+							sprite->specific.pollo.diry = SPRITE_DIRX_RIGHT;
+						}
+					}
+					break;
+					case ( SPRITE_DIRX_RIGHT ):
+					{
+						sprite->accy = 0.01f;
+						if ( sprite->y > sprite->specific.pollo.origy + 1.0f )
+						{
+							sprite->specific.pollo.diry = SPRITE_DIRX_LEFT;
+						}
+					}
+					break;
+				}
+				sprite->vy += sprite->accy;
+				if ( sprite->vy > 0.05f )
+				{
+					sprite->vy = 0.05f;
+				}
+				else if ( sprite->vy < -0.05f )
+				{
+					sprite->vy = -0.05f;
+				}
+			}
+			break;
+			case ( SPRITE_TYPE_POLLO_MOVE_VERTICAL ):
+			{
+				switch ( sprite->specific.pollo.diry )
+				{
+					case ( SPRITE_DIRX_LEFT ):
+					{
+						sprite->accy = -sprite->startspeed;
+						if ( sprite->y < sprite->specific.pollo.origy - 64.0f )
+						{
+							sprite->specific.pollo.diry = SPRITE_DIRX_RIGHT;
+						}
+					}
+					break;
+					case ( SPRITE_DIRX_RIGHT ):
+					{
+						sprite->accy = sprite->startspeed;
+						if ( sprite->y > sprite->specific.pollo.origy + 64.0f )
+						{
+							sprite->specific.pollo.diry = SPRITE_DIRX_LEFT;
+						}
+					}
+					break;
+				}
+				sprite->vy += sprite->accy;
+				if ( sprite->vy > sprite->maxspeed )
+				{
+					sprite->vy = sprite->maxspeed;
+				}
+				else if ( sprite->vy < -sprite->maxspeed )
+				{
+					sprite->vy = -sprite->maxspeed;
+				}
+			}
+			break;
+			case ( SPRITE_TYPE_TRUCK ):
+			{
+				sprite_move_in_direction( sprite );
+				sprite_turn_on_collision( sprite );
+			}
+			break;
+			case ( SPRITE_TYPE_BEE_STILL ):
+			{
+				const float xadjust = rand_range( -1.0f, 1.0f );
+				const float yadjust = rand_range( -1.0f, 1.0f );
+				sprite->x = sprite->specific.bee.origx + xadjust;
+				sprite->y = sprite->specific.bee.origy + yadjust;
+			}
+			break;
+			case ( SPRITE_TYPE_BEE_SPIN ):
+			{
+				sprite->x = sprite->specific.bee.origx - ( sprite->w / 4.0f ) + cosf( sprite->specific.bee.angle ) * 64.0f;
+				sprite->y = sprite->specific.bee.origy + sinf( sprite->specific.bee.angle ) * 64.0f;
+				sprite->specific.bee.angle += 0.05f;
+			}
+			break;
+			case ( SPRITE_TYPE_BEE_MOVE_HORIZONTAL ):
+			{
+				switch ( sprite->specific.bee.dir )
+				{
+					case ( SPRITE_DIRX_LEFT ):
+					{
+						sprite->accx = -sprite->startspeed;
+						if ( sprite->x < sprite->specific.bee.origx - 64.0f )
+						{
+							sprite->specific.bee.dir = SPRITE_DIRX_RIGHT;
+						}
+					}
+					break;
+					case ( SPRITE_DIRX_RIGHT ):
+					{
+						sprite->accx = sprite->startspeed;
+						if ( sprite->x > sprite->specific.bee.origx + 64.0f )
+						{
+							sprite->specific.bee.dir = SPRITE_DIRX_LEFT;
+						}
+					}
+					break;
+				}
+			}
+			break;
+			case ( SPRITE_TYPE_BEE_MOVE_VERTICAL ):
+			{
+				switch ( sprite->specific.bee.dir )
+				{
+					case ( SPRITE_DIRX_LEFT ):
+					{
+						sprite->accy = -sprite->startspeed;
+						if ( sprite->y < sprite->specific.bee.origy - 64.0f )
+						{
+							sprite->specific.bee.dir = SPRITE_DIRX_RIGHT;
+						}
+					}
+					break;
+					case ( SPRITE_DIRX_RIGHT ):
+					{
+						sprite->accy = sprite->startspeed;
+						if ( sprite->y > sprite->specific.bee.origy + 64.0f )
+						{
+							sprite->specific.bee.dir = SPRITE_DIRX_LEFT;
+						}
+					}
+					break;
+				}
+				sprite->vy += sprite->accy;
+				if ( sprite->vy > sprite->maxspeed )
+				{
+					sprite->vy = sprite->maxspeed;
+				}
+				else if ( sprite->vy < -sprite->maxspeed )
+				{
+					sprite->vy = -sprite->maxspeed;
+				}
+			}
+			break;
+			case ( SPRITE_TYPE_HYDRANT ):
+			{
+				if ( sprite->specific.hydrant.awake )
+				{
+					sprite->specific.hydrant.timer += 1.0f;
+					if ( sprite->specific.hydrant.timer >= 32.0f )
+					{
+						sprite->specific.hydrant.timer = 32.0f;
+						sprite_jump_when_on_ground( sprite );
+					}
+				}
+			}
 		}
 	}
 
@@ -403,7 +648,7 @@ void sprite_update( tile_t * map, sprite_t * sprite )
 	engine_set_graphic_h( sprite->graphics.rcollision, BOUNDLRH( sprite ) );
 
 	engine_set_graphic_x( sprite->graphics.bcollision, BOUNDTBX( sprite ) );
-	engine_set_graphic_y( sprite->graphics.bcollision, BOUNDBY( sprite ) );
+	engine_set_graphic_y( sprite->graphics.bcollision, BOUNDBY( sprite ) - 1.0f );
 
 	engine_set_graphic_x( sprite->graphics.tcollision, BOUNDTBX( sprite ) );
 	engine_set_graphic_y( sprite->graphics.tcollision, BOUNDTY( sprite ) );

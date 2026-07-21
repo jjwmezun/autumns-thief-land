@@ -3,6 +3,7 @@
 #include "map.h"
 #include <stdio.h>
 #include "player.h"
+#include "rand.h"
 #include "sprite.h"
 #include "tile.h"
 
@@ -18,6 +19,8 @@ int main()
 		fprintf( stderr, "Failed to initialize engine.\n" );
 		return 1;
 	}
+
+	rand_init();
 
 	// Add BG.
 	engine_add_graphic(
