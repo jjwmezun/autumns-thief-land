@@ -4,6 +4,8 @@
 #include "player.h"
 #include <string.h>
 
+#include <stdio.h>
+
 #define HLXPOINT( x ) ( ( x ) + 1.0f )
 #define HRXPOINT( x ) ( ( x ) + 15.0f )
 #define HTYPOINT( y, h ) ( ( y ) - ( h ) + 5.0f )
@@ -39,6 +41,7 @@ typedef struct collision_t {
 	unsigned int valid : 1;
 } collision_t;
 
+static void player_bounce( player_t * player, float bounce );
 static void player_general_collision( const tile_t * map, player_t * player );
 static collision_t player_generate_collision( const tile_t * map, const player_t * player, unsigned int type );
 static unsigned int player_is_going_fast( const player_t * player );
@@ -49,7 +52,7 @@ static void player_update_normal( const tile_t * map, player_t * player );
 static void player_update_sliding( const tile_t * map, player_t * player );
 static void player_update_sliding_end( const tile_t * map, player_t * player );
 
-player_t create_player( float x, float y )
+player_t player_create( float x, float y )
 {
 	// Convert to pixel coordinates.
 	x *= 16.0f;
@@ -146,7 +149,42 @@ player_t create_player( float x, float y )
 	};
 }
 
-void update_player( tile_t * map, player_t * player )
+void player_interact_with_sprite( player_t * player, sprite_t * sprite )
+{
+	// Dead sprites tell no tales.
+	if ( sprite->isdead )
+	{
+		return;
+	}
+
+	// Test for bopping the sprite on the head,
+	// & if so, bounce off the enemy & kill it.
+	if
+	(
+		player->vy > 0.0f &&
+		player->y < sprite->y - sprite->h + 8.0f &&
+		player->y > sprite->y - sprite->h &&
+		player->x + player->w > sprite->x &&
+		player->x < sprite->x + sprite->w
+	)
+	{
+		player_bounce( player, 0.25f );
+		sprite->isdead = 1;
+	}
+	// Otherwise check for other collision, which will hurt the player.
+	else if
+	(
+		player->y - sprite->h < sprite->y &&
+		player->y > sprite->y - sprite->h &&
+		player->x + player->w > sprite->x &&
+		player->x < sprite->x + sprite->w
+	)
+	{
+		printf( "¡OUCH!\n" );
+	}
+}
+
+void player_update( tile_t * map, player_t * player )
 {
 	switch ( player->state )
 	{
@@ -217,6 +255,14 @@ void update_player( tile_t * map, player_t * player )
 	engine_set_graphic_y( player->graphics.ytm_hitpoint, VTYPOINT( player->y, player->h ) );
 }
 
+static void player_bounce( player_t * player, float bounce )
+{
+	player->isjumping = 1;
+	player->bounce = bounce;
+	player->vy = -( player->startjump + player->bounce );
+	player->accy = -( player->jumpacc + player->bounce );
+}
+
 static void player_general_collision( const tile_t * map, player_t * player )
 {
 	// Solid X collision.
@@ -274,10 +320,7 @@ static void player_general_collision( const tile_t * map, player_t * player )
 		is_tile_bouncy( vbrtile.tile )
 	)
 	{
-		player->isjumping = 1;
-		player->bounce = 0.5f;
-		player->vy = -( player->startjump + player->bounce );
-		player->accy = -( player->jumpacc + player->bounce );
+		player_bounce( player, 0.5f );
 	}
 	else if (
 		// Only collide with solid-top if falling & interacting with the top o’ the block.

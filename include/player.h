@@ -2,6 +2,7 @@
 #define PLAYER_H
 
 #include "engine.h"
+#include "sprite.h"
 #include "tile.h"
 
 #define PLAYER_STATE_NORMAL      0
@@ -61,7 +62,8 @@ typedef struct player_t {
 	graphics;
 } player_t;
 
-player_t create_player( float x, float y );
-void update_player( tile_t * map, player_t * player );
+player_t player_create( float x, float y );
+void player_interact_with_sprite( player_t * player, sprite_t * sprite );
+void player_update( tile_t * map, player_t * player );
 
 #endif // PLAYER_H

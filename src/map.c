@@ -22,6 +22,7 @@ tile_t * create_map()
 		map[ ( WINDOW_HEIGHT_BLOCKS - 2 ) * WINDOW_WIDTH_BLOCKS + x ] = create_solid_tile();
 	}
 
+	/*
 	map[ ( WINDOW_HEIGHT_BLOCKS - 4 ) * WINDOW_WIDTH_BLOCKS + 15 ] = create_solid_tile();
 	map[ ( WINDOW_HEIGHT_BLOCKS - 3 ) * WINDOW_WIDTH_BLOCKS + 15 ] = create_solid_tile();
 	map[ ( WINDOW_HEIGHT_BLOCKS - 3 ) * WINDOW_WIDTH_BLOCKS + 16 ] = create_solid_tile();
@@ -515,6 +516,7 @@ tile_t * create_map()
 		map[ 8 * WINDOW_WIDTH_BLOCKS + i ] = create_solid_tile();
 	}
 
+	/*
 	map[ 7 * WINDOW_WIDTH_BLOCKS + 8 ] = create_sloped_tile(
 		TILE_RIGHT,
 		TILE_HIGH,
@@ -1122,13 +1124,18 @@ tile_t * create_map()
 	map[ 8 * WINDOW_WIDTH_BLOCKS + 2 ] = create_empty_tile();
 	map[ 8 * WINDOW_WIDTH_BLOCKS + 3 ] = create_empty_tile();
 
-	/*
-	for ( size_t y = 5; y < WINDOW_HEIGHT_BLOCKS; ++y )
+	
+	for ( size_t y = 13; y < WINDOW_HEIGHT_BLOCKS; ++y )
 	{
 		for ( size_t x = 0; x < WINDOW_WIDTH_BLOCKS; ++x )
 		{
 			make_tile_underwater( &map[ y * WINDOW_WIDTH_BLOCKS + x ] );
 		}
+	}
+
+	for ( size_t x = 0; x < WINDOW_WIDTH_BLOCKS; ++x )
+	{
+		map[ 3 * WINDOW_WIDTH_BLOCKS + x ] = create_solid_tile();
 	}*/
 
 	// Add solid block graphics.

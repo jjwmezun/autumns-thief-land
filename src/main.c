@@ -3,6 +3,7 @@
 #include "map.h"
 #include <stdio.h>
 #include "player.h"
+#include "sprite.h"
 #include "tile.h"
 
 static unsigned int running = 1;
@@ -28,7 +29,11 @@ int main()
 	tile_t * map = create_map();
 
 	// Init player sprite.
-	player_t player = create_player( 16.0f, 11.0f );
+	player_t player = player_create( 16.0f, 15.0f );
+
+	// Init other sprites.
+	sprite_t apple = sprite_create( 10.0f, 15.0f, SPRITE_TYPE_APPLE );
+	sprite_t pollo = sprite_create( 22.0f, 15.0f, SPRITE_TYPE_POLLO );
 
 	add_priority_map_graphics( map );
 
@@ -52,7 +57,14 @@ int main()
 	{
 		running = engine_loop();
 
-        update_player( map, &player );
+		// Update sprites.
+        player_update( map, &player );
+		sprite_update( map, &apple );
+		sprite_update( map, &pollo );
+
+		// Handle sprite interaction.
+		player_interact_with_sprite( &player, &apple );
+		player_interact_with_sprite( &player, &pollo );
 
 		engine_render();
 
