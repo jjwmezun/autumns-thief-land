@@ -5,15 +5,18 @@
 #include <stdint.h>
 #include "tile.h"
 
-#define SPRITE_TYPE_PLAYER              0
-#define SPRITE_TYPE_APPLE               1
-#define SPRITE_TYPE_POLLO               2
-#define SPRITE_TYPE_CRAB                3
-#define SPRITE_TYPE_TRUCK               4
-#define SPRITE_TYPE_BEE_STILL           5
-#define SPRITE_TYPE_BEE_SPIN            6
-#define SPRITE_TYPE_BEE_MOVE_HORIZONTAL 7
-#define SPRITE_TYPE_BEE_MOVE_VERTICAL   8
+#define SPRITE_TYPE_PLAYER                 0
+#define SPRITE_TYPE_APPLE                  1
+#define SPRITE_TYPE_POLLO_STILL            2
+#define SPRITE_TYPE_POLLO_SPIN             3
+#define SPRITE_TYPE_POLLO_MOVE_HORIZONTAL  4
+#define SPRITE_TYPE_POLLO_MOVE_VERTICAL    5
+#define SPRITE_TYPE_CRAB                   6
+#define SPRITE_TYPE_TRUCK                  7
+#define SPRITE_TYPE_BEE_STILL              8
+#define SPRITE_TYPE_BEE_SPIN               9
+#define SPRITE_TYPE_BEE_MOVE_HORIZONTAL   10
+#define SPRITE_TYPE_BEE_MOVE_VERTICAL     11
 
 #define SPRITE_DIRX_LEFT  0
 #define SPRITE_DIRX_RIGHT 1
@@ -76,6 +79,14 @@ typedef struct sprite_t
 			unsigned int dir : 1;
 		}
 		bee;
+		struct
+		{
+			float origx;
+			float origy;
+			float angle;
+			unsigned int diry : 1;
+		}
+		pollo;
 	}
 	specific;
 } sprite_t;

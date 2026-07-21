@@ -47,8 +47,8 @@ static collision_t player_generate_collision( const tile_t * map, const player_t
 static unsigned int player_is_going_fast( const player_t * player );
 static void player_jump( player_t * player );
 static unsigned int player_slope_physics( const tile_t * map, player_t * player, float ypoint );
-static unsigned int player_test_bop_sprite( player_t * player, sprite_t * sprite );
-static unsigned int player_test_top_collision( player_t * player, sprite_t * sprite );
+static unsigned int player_test_bop_sprite( player_t * player, sprite_t * sprite, float padding );
+static unsigned int player_test_top_collision( player_t * player, sprite_t * sprite, float padding );
 static void player_test_sprite_harm( player_t * player, sprite_t * sprite );
 static void player_update_climbing( const tile_t * map, player_t * player );
 static void player_update_normal( const tile_t * map, player_t * player );
@@ -163,15 +163,25 @@ void player_interact_with_sprite( player_t * player, sprite_t * sprite )
 	{
 		case ( SPRITE_TYPE_APPLE ):
 		{
-			if ( !player_test_bop_sprite( player, sprite ) )
+			if ( !player_test_bop_sprite( player, sprite, 4.0f ) )
 			{
 				player_test_sprite_harm( player, sprite );
 			}
 		}
 		break;
-		case ( SPRITE_TYPE_POLLO ):
+		case ( SPRITE_TYPE_POLLO_STILL ):
+		case ( SPRITE_TYPE_POLLO_MOVE_HORIZONTAL ):
+		case ( SPRITE_TYPE_POLLO_MOVE_VERTICAL ):
 		{
-			if ( !player_test_bop_sprite( player, sprite ) )
+			if ( !player_test_bop_sprite( player, sprite, 8.0f ) )
+			{
+				player_test_sprite_harm( player, sprite );
+			}
+		}
+		break;
+		case ( SPRITE_TYPE_POLLO_SPIN ):
+		{
+			if ( !player_test_bop_sprite( player, sprite, 8.0f ) )
 			{
 				player_test_sprite_harm( player, sprite );
 			}
@@ -196,7 +206,7 @@ void player_interact_with_sprite( player_t * player, sprite_t * sprite )
 		case ( SPRITE_TYPE_TRUCK ):
 		{
 			// Stand on truck if the player lands on it
-			if ( player_test_top_collision( player, sprite ) )
+			if ( player_test_top_collision( player, sprite, 4.0f ) )
 			{
 				player->y = sprite->y - sprite->h;
 				player->vy = 0.0f;
@@ -733,11 +743,11 @@ static unsigned int player_slope_physics( const tile_t * map, player_t * player,
 	return 1;
 }
 
-static unsigned int player_test_bop_sprite( player_t * player, sprite_t * sprite )
+static unsigned int player_test_bop_sprite( player_t * player, sprite_t * sprite, float padding )
 {
 	// Test for bopping the sprite on the head,
 	// & if so, bounce off the enemy & kill it.
-	if ( player_test_top_collision( player, sprite ) )
+	if ( player_test_top_collision( player, sprite, padding ) )
 	{
 		player_bounce( player, 0.25f );
 		sprite->isdead = 1;
@@ -761,12 +771,11 @@ static void player_test_sprite_harm( player_t * player, sprite_t * sprite )
 	}
 }
 
-static unsigned int player_test_top_collision( player_t * player, sprite_t * sprite )
+static unsigned int player_test_top_collision( player_t * player, sprite_t * sprite, float padding )
 {
 	return
 	(
-		player->vy > 0.0f &&
-		player->y < sprite->y - sprite->h + 8.0f &&
+		player->y < sprite->y - sprite->h + padding &&
 		player->y > sprite->y - sprite->h &&
 		player->x + player->w > sprite->x &&
 		player->x < sprite->x + sprite->w

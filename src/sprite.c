@@ -88,10 +88,37 @@ sprite_t sprite_create( float x, float y, uint8_t type )
 			sprite.maxspeed = 0.5f;
 		}
 		break;
-		case SPRITE_TYPE_POLLO:
+		case SPRITE_TYPE_POLLO_STILL:
 		{
 			sprite.w = 16.0f;
 			sprite.h = 26.0f;
+		}
+		break;
+		case SPRITE_TYPE_POLLO_SPIN:
+		{
+			sprite.w = 16.0f;
+			sprite.h = 26.0f;
+			sprite.hitbox.bpadding = 1.0f;
+			sprite.isairborne = 1;
+			sprite.interacts_with_map = 0;
+			sprite.specific.pollo.origx = sprite.x + sprite.w / 2.0f;
+			sprite.specific.pollo.origy = sprite.y + sprite.h / 4.0f;
+			sprite.specific.pollo.angle = 0.0f;
+			sprite.specific.pollo.diry = 0;
+		}
+		break;
+		case SPRITE_TYPE_POLLO_MOVE_HORIZONTAL:
+		case SPRITE_TYPE_POLLO_MOVE_VERTICAL:
+		{
+			sprite.w = 16.0f;
+			sprite.h = 26.0f;
+			sprite.hitbox.bpadding = 1.0f;
+			sprite.isairborne = 1;
+			sprite.interacts_with_map = 0;
+			sprite.specific.pollo.origx = sprite.x;
+			sprite.specific.pollo.origy = sprite.y;
+			sprite.specific.pollo.angle = 0.0f;
+			sprite.specific.pollo.diry = 0;
 		}
 		break;
 		case SPRITE_TYPE_CRAB:
@@ -335,11 +362,109 @@ void sprite_update( tile_t * map, sprite_t * sprite )
 				sprite_turn_on_collision( sprite );
 			}
 			break;
-			case ( SPRITE_TYPE_POLLO ):
+			case ( SPRITE_TYPE_POLLO_STILL ):
 			{
 				sprite_move_in_direction( sprite );
 				sprite_turn_on_collision( sprite );
 				sprite_jump_when_on_ground( sprite );
+			}
+			break;
+			case ( SPRITE_TYPE_POLLO_SPIN ):
+			{
+				sprite->x = ( sprite->specific.pollo.origx + cosf( sprite->specific.pollo.angle ) * 64.0f ) - ( sprite->w / 2.0f );
+				sprite->y = ( sprite->specific.pollo.origy + sinf( sprite->specific.pollo.angle ) * 64.0f ) - ( sprite->h / 4.0f );
+				sprite->specific.pollo.angle += 0.05f;
+			}
+			break;
+			case ( SPRITE_TYPE_POLLO_MOVE_HORIZONTAL ):
+			{
+				switch ( sprite->dirx )
+				{
+					case ( SPRITE_DIRX_LEFT ):
+					{
+						sprite->accx = -sprite->startspeed;
+						if ( sprite->x < sprite->specific.pollo.origx - 64.0f )
+						{
+							sprite->dirx = SPRITE_DIRX_RIGHT;
+						}
+					}
+					break;
+					case ( SPRITE_DIRX_RIGHT ):
+					{
+						sprite->accx = sprite->startspeed;
+						if ( sprite->x > sprite->specific.pollo.origx + 64.0f )
+						{
+							sprite->dirx = SPRITE_DIRX_LEFT;
+						}
+					}
+					break;
+				}
+
+				// Flutter up & down a bit.
+				switch ( sprite->specific.pollo.diry )
+				{
+					case ( SPRITE_DIRX_LEFT ):
+					{
+						sprite->accy = -0.01f;
+						if ( sprite->y < sprite->specific.pollo.origy - 1.0f )
+						{
+							sprite->specific.pollo.diry = SPRITE_DIRX_RIGHT;
+						}
+					}
+					break;
+					case ( SPRITE_DIRX_RIGHT ):
+					{
+						sprite->accy = 0.01f;
+						if ( sprite->y > sprite->specific.pollo.origy + 1.0f )
+						{
+							sprite->specific.pollo.diry = SPRITE_DIRX_LEFT;
+						}
+					}
+					break;
+				}
+				sprite->vy += sprite->accy;
+				if ( sprite->vy > 0.05f )
+				{
+					sprite->vy = 0.05f;
+				}
+				else if ( sprite->vy < -0.05f )
+				{
+					sprite->vy = -0.05f;
+				}
+			}
+			break;
+			case ( SPRITE_TYPE_POLLO_MOVE_VERTICAL ):
+			{
+				switch ( sprite->specific.pollo.diry )
+				{
+					case ( SPRITE_DIRX_LEFT ):
+					{
+						sprite->accy = -sprite->startspeed;
+						if ( sprite->y < sprite->specific.pollo.origy - 64.0f )
+						{
+							sprite->specific.pollo.diry = SPRITE_DIRX_RIGHT;
+						}
+					}
+					break;
+					case ( SPRITE_DIRX_RIGHT ):
+					{
+						sprite->accy = sprite->startspeed;
+						if ( sprite->y > sprite->specific.pollo.origy + 64.0f )
+						{
+							sprite->specific.pollo.diry = SPRITE_DIRX_LEFT;
+						}
+					}
+					break;
+				}
+				sprite->vy += sprite->accy;
+				if ( sprite->vy > sprite->maxspeed )
+				{
+					sprite->vy = sprite->maxspeed;
+				}
+				else if ( sprite->vy < -sprite->maxspeed )
+				{
+					sprite->vy = -sprite->maxspeed;
+				}
 			}
 			break;
 			case ( SPRITE_TYPE_TRUCK ):

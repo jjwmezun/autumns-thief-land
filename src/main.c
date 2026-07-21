@@ -35,11 +35,7 @@ int main()
 	player_t player = player_create( 16.0f, 15.0f );
 
 	// Init other sprites.
-	sprite_t apple = sprite_create( 10.0f, 15.0f, SPRITE_TYPE_APPLE );
-	sprite_t pollo = sprite_create( 22.0f, 15.0f, SPRITE_TYPE_POLLO );
-	sprite_t crab = sprite_create( 4.0f, 15.0f, SPRITE_TYPE_CRAB );
-	sprite_t truck = sprite_create( 24.0f, 15.0f, SPRITE_TYPE_TRUCK );
-	sprite_t bee = sprite_create( 16.0f, 10.0f, SPRITE_TYPE_BEE_MOVE_VERTICAL );
+	sprite_t pollo = sprite_create( 20.0f, 12.0f, SPRITE_TYPE_POLLO_MOVE_VERTICAL );
 
 	add_priority_map_graphics( map );
 
@@ -65,18 +61,10 @@ int main()
 
 		// Update sprites.
         player_update( map, &player );
-		sprite_update( map, &apple );
 		sprite_update( map, &pollo );
-		sprite_update( map, &crab );
-		sprite_update( map, &truck );
-		sprite_update( map, &bee );
 
 		// Handle sprite interaction.
-		player_interact_with_sprite( &player, &apple );
 		player_interact_with_sprite( &player, &pollo );
-		player_interact_with_sprite( &player, &crab );
-		player_interact_with_sprite( &player, &truck );
-		player_interact_with_sprite( &player, &bee );
 
 		engine_render();
 
