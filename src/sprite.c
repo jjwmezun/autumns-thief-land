@@ -104,13 +104,14 @@ sprite_t sprite_create( float x, float y, uint8_t type )
 			sprite.h = 32;
 		}
 		break;
-		case SPRITE_TYPE_BEE:
+		case SPRITE_TYPE_BEE_STILL:
 		case SPRITE_TYPE_BEE_SPIN:
 		case SPRITE_TYPE_BEE_MOVE_HORIZONTAL:
 		case SPRITE_TYPE_BEE_MOVE_VERTICAL:
 		{
 			sprite.w = 24.0f;
 			sprite.h = 24.0f;
+			sprite.hitbox.bpadding = 1.0f;
 			sprite.isairborne = 1;
 			sprite.interacts_with_map = 0;
 			sprite.specific.bee.origx = sprite.x;
@@ -136,7 +137,7 @@ sprite_t sprite_create( float x, float y, uint8_t type )
 		( color ){ 0.0f, 0.5f, 0.5f, 1.0f }
 	);
 	sprite.graphics.bcollision = engine_add_graphic(
-		( rect ){ BOUNDTBX( &sprite ), BOUNDBY( &sprite ), BOUNDTBW( &sprite ), 1.0f },
+		( rect ){ BOUNDTBX( &sprite ), BOUNDBY( &sprite ) - 1.0f, BOUNDTBW( &sprite ), 1.0f },
 		( color ){ 0.0f, 0.5f, 0.5f, 1.0f }
 	);
 	sprite.graphics.tcollision = engine_add_graphic(
@@ -347,7 +348,7 @@ void sprite_update( tile_t * map, sprite_t * sprite )
 				sprite_turn_on_collision( sprite );
 			}
 			break;
-			case ( SPRITE_TYPE_BEE ):
+			case ( SPRITE_TYPE_BEE_STILL ):
 			{
 				const float xadjust = rand_range( -1.0f, 1.0f );
 				const float yadjust = rand_range( -1.0f, 1.0f );
@@ -436,7 +437,7 @@ void sprite_update( tile_t * map, sprite_t * sprite )
 	engine_set_graphic_y( sprite->graphics.rcollision, BOUNDLRY( sprite ) );
 
 	engine_set_graphic_x( sprite->graphics.bcollision, BOUNDTBX( sprite ) );
-	engine_set_graphic_y( sprite->graphics.bcollision, BOUNDBY( sprite ) );
+	engine_set_graphic_y( sprite->graphics.bcollision, BOUNDBY( sprite ) - 1.0f );
 
 	engine_set_graphic_x( sprite->graphics.tcollision, BOUNDTBX( sprite ) );
 	engine_set_graphic_y( sprite->graphics.tcollision, BOUNDTY( sprite ) );

@@ -10,7 +10,7 @@
 #define SPRITE_TYPE_POLLO               2
 #define SPRITE_TYPE_CRAB                3
 #define SPRITE_TYPE_TRUCK               4
-#define SPRITE_TYPE_BEE                 5
+#define SPRITE_TYPE_BEE_STILL           5
 #define SPRITE_TYPE_BEE_SPIN            6
 #define SPRITE_TYPE_BEE_MOVE_HORIZONTAL 7
 #define SPRITE_TYPE_BEE_MOVE_VERTICAL   8

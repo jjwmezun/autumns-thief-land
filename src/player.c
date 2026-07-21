@@ -213,7 +213,7 @@ void player_interact_with_sprite( player_t * player, sprite_t * sprite )
 			}
 		}
 		break;
-		case ( SPRITE_TYPE_BEE ):
+		case ( SPRITE_TYPE_BEE_STILL ):
 		case ( SPRITE_TYPE_BEE_SPIN ):
 		case ( SPRITE_TYPE_BEE_MOVE_HORIZONTAL ):
 		case ( SPRITE_TYPE_BEE_MOVE_VERTICAL ):
