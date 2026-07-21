@@ -5,8 +5,9 @@
 #include <stdint.h>
 #include "tile.h"
 
-#define SPRITE_TYPE_APPLE 0
-#define SPRITE_TYPE_POLLO 1
+#define SPRITE_TYPE_PLAYER 0
+#define SPRITE_TYPE_APPLE  1
+#define SPRITE_TYPE_POLLO  2
 
 #define SPRITE_DIRX_LEFT  0
 #define SPRITE_DIRX_RIGHT 1
@@ -29,6 +30,7 @@ typedef struct sprite_t
 	float jumpacc;
 	float maxjump;
 	float bounce;
+	float friction;
 	unsigned int onground : 1;
 	unsigned int isjumping : 1;
     unsigned int isunderwater : 1;
@@ -57,6 +59,17 @@ typedef struct sprite_t
 		graphic_id_t slopepoint;
 	}
 	graphics;
+	union
+	{
+		struct
+		{
+			float startspeed;
+			float maxspeed;
+			unsigned int isducking : 1;
+		}
+		player;
+	}
+	specific;
 } sprite_t;
 
 sprite_t sprite_create( float x, float y, uint8_t type );

@@ -22,6 +22,7 @@ typedef struct collision_t {
 
 static void sprite_jump( sprite_t * sprite );
 static void sprite_jump_when_on_ground( sprite_t * sprite );
+static void sprite_move_in_direction( sprite_t * sprite );
 static unsigned int sprite_slope_physics( const tile_t * map, sprite_t * sprite, float ypoint );
 static collision_t sprite_test_bottom_collision( const tile_t * map, sprite_t * sprite, unsigned int ( * test )( tile_t ) );
 static collision_t sprite_test_horizontal_collision( const tile_t * map, sprite_t * sprite, unsigned int ( * test )( tile_t ), int x );
@@ -42,6 +43,12 @@ sprite_t sprite_create( float x, float y, uint8_t type )
 
 	switch ( type )
 	{
+		case SPRITE_TYPE_PLAYER:
+		{
+			w = 16.0f;
+			h = 26.0f;
+		}
+		break;
 		case SPRITE_TYPE_APPLE:
 		{
 			w = 16.0f;
@@ -75,6 +82,7 @@ sprite_t sprite_create( float x, float y, uint8_t type )
 		.jumpacc = 0.2f,
 		.maxjump = 3.0f,
 		.bounce = 0.0f,
+		.friction = 0.25f,
 		.onground = 0,
 		.isjumping = 0,
 		.isunderwater = 0,
@@ -92,6 +100,27 @@ sprite_t sprite_create( float x, float y, uint8_t type )
 			.bpadding = 0.0f
 		},
 	};
+
+	switch ( type )
+	{
+		case SPRITE_TYPE_PLAYER:
+		{
+			sprite.specific.player.startspeed = 0.1f;
+			sprite.specific.player.maxspeed = 1.0f;
+		}
+		break;
+		case SPRITE_TYPE_APPLE:
+		{
+		}
+		break;
+		case SPRITE_TYPE_POLLO:
+		{
+		}
+		break;
+		default:
+		break;
+	}
+
 	sprite.graphics.rect = engine_add_graphic(
 		( rect ){ x, y, w, h },
 		( color ){ 1.0f, 0.0f, 0.0f, 1.0f }
@@ -168,9 +197,11 @@ void sprite_update( tile_t * map, sprite_t * sprite )
 		sprite->y += sprite->vy;
 
 		// Handle X movement.
-		const float startspeed = sprite->isunderwater ? sprite->startspeed * 0.5f : sprite->startspeed;
+		if ( sprite->isunderwater )
+		{
+			sprite->accx *= 0.5f;
+		}
 		const float maxspeed = sprite->isunderwater ? sprite->maxspeed * 0.5f : sprite->maxspeed;
-		sprite->accx = sprite->dirx == SPRITE_DIRX_RIGHT ? startspeed : -startspeed;
 		sprite->vx += sprite->accx;
 		if ( sprite->vx > maxspeed )
 		{
@@ -179,6 +210,10 @@ void sprite_update( tile_t * map, sprite_t * sprite )
 		else if ( sprite->vx < -maxspeed )
 		{
 			sprite->vx = -maxspeed;
+		}
+		if ( sprite->accx == 0.0f )
+		{
+			sprite->vx /= 1.0f + sprite->friction;
 		}
 		sprite->x += sprite->vx;
 
@@ -288,13 +323,65 @@ void sprite_update( tile_t * map, sprite_t * sprite )
 
 		switch ( sprite->type )
 		{
+			case ( SPRITE_TYPE_PLAYER ):
+			{
+				// Handle ducking behavior.
+				if ( sprite->onground && input_pressed_down() )
+				{
+					sprite->specific.player.isducking = 1;
+				}
+				else if ( !input_pressed_down() )
+				{
+					sprite->specific.player.isducking = 0;
+				}
+
+				sprite->startspeed = sprite->specific.player.isducking
+					? 0.0f
+					: input_pressed_run() ? sprite->specific.player.startspeed * 2.0f : sprite->specific.player.startspeed;
+				sprite->maxspeed = input_pressed_run() ? sprite->specific.player.maxspeed * 2.0f : sprite->specific.player.maxspeed;
+
+				if ( input_pressed_left() )
+				{
+					sprite->dirx = SPRITE_DIRX_LEFT;
+					sprite->accx = -sprite->startspeed;
+				}
+				else if ( input_pressed_right() )
+				{
+					sprite->dirx = SPRITE_DIRX_RIGHT;
+					sprite->accx = sprite->startspeed;
+				}
+				else
+				{
+					sprite->accx = 0.0f;
+				}
+
+				if ( sprite->isjumping )
+				{
+					if ( !input_pressed_jump() )
+					{
+						sprite->isjumping = 0;
+						sprite->accy = 0.0f;
+						sprite->bounce = 0.0f;
+					}
+				}
+				else if ( input_pressed_jump() && sprite->onground )
+				{
+					sprite_jump( sprite );
+				}
+
+				// Shrink player height if ducking or sliding.
+				sprite->h = sprite->specific.player.isducking ? 16.0f : 26.0f;
+			}
+			break;
 			case ( SPRITE_TYPE_APPLE ):
 			{
+				sprite_move_in_direction( sprite );
 				sprite_turn_on_collision( sprite );
 			}
 			break;
 			case ( SPRITE_TYPE_POLLO ):
 			{
+				sprite_move_in_direction( sprite );
 				sprite_turn_on_collision( sprite );
 				sprite_jump_when_on_ground( sprite );
 			}
@@ -309,9 +396,11 @@ void sprite_update( tile_t * map, sprite_t * sprite )
 
 	engine_set_graphic_x( sprite->graphics.lcollision, BOUNDLX( sprite ) );
 	engine_set_graphic_y( sprite->graphics.lcollision, BOUNDLRY( sprite ) );
+	engine_set_graphic_h( sprite->graphics.lcollision, BOUNDLRH( sprite ) );
 	
 	engine_set_graphic_x( sprite->graphics.rcollision, BOUNDRX( sprite ) - 1.0f );
 	engine_set_graphic_y( sprite->graphics.rcollision, BOUNDLRY( sprite ) );
+	engine_set_graphic_h( sprite->graphics.rcollision, BOUNDLRH( sprite ) );
 
 	engine_set_graphic_x( sprite->graphics.bcollision, BOUNDTBX( sprite ) );
 	engine_set_graphic_y( sprite->graphics.bcollision, BOUNDBY( sprite ) );
@@ -336,6 +425,11 @@ static void sprite_jump_when_on_ground( sprite_t * sprite )
 	{
 		sprite_jump( sprite );
 	}
+}
+
+static void sprite_move_in_direction( sprite_t * sprite )
+{
+	sprite->accx = sprite->dirx == SPRITE_DIRX_RIGHT ? sprite->startspeed : -sprite->startspeed;
 }
 
 static unsigned int sprite_slope_physics( const tile_t * map, sprite_t * sprite, float ypoint )
