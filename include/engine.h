@@ -1,6 +1,7 @@
 #ifndef ENGINE_H
 #define ENGINE_H
 
+#include "camera.h"
 #include <inttypes.h>
 
 typedef struct rect {
@@ -22,7 +23,7 @@ graphic_id_t engine_add_graphic( rect rect, color color );
 float engine_get_ticks();
 int engine_init( const char * title );
 int engine_loop();
-void engine_render();
+void engine_render( const camera_t * camera );
 void engine_set_graphic_h( graphic_id_t graphic_id, float h );
 void engine_set_graphic_x( graphic_id_t graphic_id, float x );
 void engine_set_graphic_y( graphic_id_t graphic_id, float y );

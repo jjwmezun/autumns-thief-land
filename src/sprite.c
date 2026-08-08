@@ -199,7 +199,7 @@ void sprite_interact( sprite_t * a, sprite_t * b )
 	}
 };
 
-void sprite_update( tile_t * map, sprite_t * sprite )
+void sprite_update( map_t * map, sprite_t * sprite, camera_t * camera )
 {
 	// Reset collision flags.
 	sprite->collided_bottom_solid = 0;
@@ -217,7 +217,7 @@ void sprite_update( tile_t * map, sprite_t * sprite )
 	{
 		case ( SPRITE_TYPE_PLAYER ):
 		{
-			player_update( map, sprite );
+			player_update( map, sprite, camera );
 		}
 		break;
 		case ( SPRITE_TYPE_APPLE ):
@@ -584,7 +584,7 @@ void sprite_fall( sprite_t * sprite )
 	sprite->y += sprite->vy;
 }
 
-void sprite_falling_and_jumping( const tile_t * map, sprite_t * sprite )
+void sprite_falling_and_jumping( const map_t * map, sprite_t * sprite )
 {
 	const float startgravity = sprite->isunderwater ? sprite->startgravity * 0.5f : sprite->startgravity;
 	const float maxgravity = sprite->isunderwater ? sprite->maxgravity * 0.5f : sprite->maxgravity;
@@ -627,7 +627,7 @@ void sprite_jump_when_on_ground( sprite_t * sprite )
 	}
 }
 
-void sprite_map_interaction( const tile_t * map, sprite_t * sprite )
+void sprite_map_interaction( const map_t * map, sprite_t * sprite )
 {
 	// Handle X collision.
 	collision_t left_solid_collision = sprite_test_left_collision( map, sprite, is_tile_solid );
@@ -762,7 +762,7 @@ void sprite_move_x( sprite_t * sprite )
 	sprite->x += sprite->vx;
 }
 
-unsigned int sprite_slope_physics( const tile_t * map, sprite_t * sprite, float ypoint )
+unsigned int sprite_slope_physics( const map_t * map, sprite_t * sprite, float ypoint )
 {
 	// Get tile coordinates for sprite’s position.
 	const int tiley = ( int )( ypoint / 16.0f );
@@ -780,7 +780,7 @@ unsigned int sprite_slope_physics( const tile_t * map, sprite_t * sprite, float 
 		return 0;
 	}
 
-	const tile_t tile = map[ tiley * WINDOW_WIDTH_BLOCKS + tilex ];
+	const tile_t tile = map_get_tile( map, tilex, tiley );
 
 	// Skip non-slope tiles.
 	if ( !is_tile_slope( tile ) )
@@ -890,17 +890,17 @@ unsigned int sprite_slope_physics( const tile_t * map, sprite_t * sprite, float 
 	return 1;
 }
 
-collision_t sprite_test_bottom_collision( const tile_t * map, sprite_t * sprite, unsigned int ( * test )( tile_t ) )
+collision_t sprite_test_bottom_collision( const map_t * map, sprite_t * sprite, unsigned int ( * test )( tile_t ) )
 {
 	return sprite_test_vertical_collision( map, sprite, test, BOUNDBY( sprite ) );
 }
 
-collision_t sprite_test_horizontal_collision( const tile_t * map, sprite_t * sprite, unsigned int ( * test )( tile_t ), int x )
+collision_t sprite_test_horizontal_collision( const map_t * map, sprite_t * sprite, unsigned int ( * test )( tile_t ), int x )
 {
 	collision_t collision = { 0 };
 
 	// Avoid out-o’-bounds array access.
-	if ( x < 0 || x >= WINDOW_WIDTH_PIXELS )
+	if ( x < 0 || x >= map->width * 16 )
 	{
 		return collision;
 	}
@@ -913,9 +913,9 @@ collision_t sprite_test_horizontal_collision( const tile_t * map, sprite_t * spr
 	{
 		return collision;
 	}
-	else if ( endy >= WINDOW_HEIGHT_PIXELS )
+	else if ( endy >= map->height * 16 )
 	{
-		endy = WINDOW_HEIGHT_PIXELS - 1;
+		endy = map->height * 16 - 1;
 	}
 
 	unsigned int tilex = 0;
@@ -937,7 +937,7 @@ collision_t sprite_test_horizontal_collision( const tile_t * map, sprite_t * spr
 
 		// Grab corresponding tile & test for collision.
 		// If colliding, we can just return now.
-		tile = map[ tiley * WINDOW_WIDTH_BLOCKS + tilex ];
+		tile = map_get_tile( map, tilex, tiley );
 		if ( test( tile ) )
 		{
 			collision.tile = tile;
@@ -955,7 +955,7 @@ collision_t sprite_test_horizontal_collision( const tile_t * map, sprite_t * spr
 	// but the extra check required to avoid that would probably be e’en slower & less consistent.
 	tilex = ( unsigned int )( x / 16.0f );
 	tiley = ( unsigned int )( endy / 16.0f );
-	tile = map[ tiley * WINDOW_WIDTH_BLOCKS + tilex ];
+	tile = map_get_tile( map, tilex, tiley );
 	if ( test( tile ) )
 	{
 		collision.tile = tile;
@@ -968,27 +968,27 @@ collision_t sprite_test_horizontal_collision( const tile_t * map, sprite_t * spr
 	return collision;
 }
 
-collision_t sprite_test_left_collision( const tile_t * map, sprite_t * sprite, unsigned int ( * test )( tile_t ) )
+collision_t sprite_test_left_collision( const map_t * map, sprite_t * sprite, unsigned int ( * test )( tile_t ) )
 {
 	return sprite_test_horizontal_collision( map, sprite, test, BOUNDLX( sprite ) );
 }
 
-collision_t sprite_test_right_collision( const tile_t * map, sprite_t * sprite, unsigned int ( * test )( tile_t ) )
+collision_t sprite_test_right_collision( const map_t * map, sprite_t * sprite, unsigned int ( * test )( tile_t ) )
 {
 	return sprite_test_horizontal_collision( map, sprite, test, BOUNDRX( sprite ) );
 }
 
-collision_t sprite_test_top_collision( const tile_t * map, sprite_t * sprite, unsigned int ( * test )( tile_t ) )
+collision_t sprite_test_top_collision( const map_t * map, sprite_t * sprite, unsigned int ( * test )( tile_t ) )
 {
 	return sprite_test_vertical_collision( map, sprite, test, BOUNDTY( sprite ) );
 }
 
-collision_t sprite_test_vertical_collision( const tile_t * map, sprite_t * sprite, unsigned int ( * test )( tile_t ), int y )
+collision_t sprite_test_vertical_collision( const map_t * map, sprite_t * sprite, unsigned int ( * test )( tile_t ), int y )
 {
 	collision_t collision = { 0 };
 
 	// Avoid out-o’-bounds array access.
-	if ( y < 0 || y >= WINDOW_HEIGHT_PIXELS )
+	if ( y < 0 || y >= map->height * 16 )
 	{
 		return collision;
 	}
@@ -1001,9 +1001,9 @@ collision_t sprite_test_vertical_collision( const tile_t * map, sprite_t * sprit
 	{
 		return collision;
 	}
-	else if ( endx >= WINDOW_WIDTH_PIXELS )
+	else if ( endx >= map->width * 16 )
 	{
-		endx = WINDOW_WIDTH_PIXELS - 1;
+		endx = map->width * 16 - 1;
 	}
 
 	unsigned int tilex = 0;
@@ -1026,7 +1026,7 @@ collision_t sprite_test_vertical_collision( const tile_t * map, sprite_t * sprit
 
 		// Grab corresponding tile & test for collision.
 		// If colliding, we can just return now.
-		tile = map[ tiley * WINDOW_WIDTH_BLOCKS + tilex ];
+		tile = map_get_tile( map, tilex, tiley );
 		if ( test( tile ) )
 		{
 			collision.tile = tile;
@@ -1046,7 +1046,7 @@ collision_t sprite_test_vertical_collision( const tile_t * map, sprite_t * sprit
 	// but the extra check required to avoid that would probably be e’en slower & less consistent.
 	tilex = ( unsigned int )( endx / 16.0f );
 	tiley = ( unsigned int )( y / 16.0f );
-	tile = map[ tiley * WINDOW_WIDTH_BLOCKS + tilex ];
+	tile = map_get_tile( map, tilex, tiley );
 	if ( test( tile ) )
 	{
 		collision.tile = tile;

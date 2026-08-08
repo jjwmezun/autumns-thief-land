@@ -3,6 +3,7 @@ cmake_minimum_required(VERSION 3.2)
 project(AutumnsThiefLand)
 set(OpenGL_GL_PREFERENCE "GLVND")
 add_executable(AutumnsThiefLand
+    src/camera.c
     src/engine.c
     src/main.c
     src/map.c

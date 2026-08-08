@@ -3,10 +3,10 @@
 #include "player.h"
 
 static unsigned int sprite_player_going_fast( sprite_t * sprite );
-static void player_update_normal( tile_t * map, sprite_t * sprite );
-static void player_update_sliding( const tile_t * map, sprite_t * player );
-static void player_update_sliding_end( const tile_t * map, sprite_t * player );
-static void player_update_climbing( const tile_t * map, sprite_t * player );
+static void player_update_normal( map_t * map, sprite_t * sprite );
+static void player_update_sliding( map_t * map, sprite_t * player );
+static void player_update_sliding_end( map_t * map, sprite_t * player );
+static void player_update_climbing( map_t * map, sprite_t * player );
 
 void player_interact( sprite_t * a, sprite_t * b )
 {
@@ -101,7 +101,7 @@ void player_interact( sprite_t * a, sprite_t * b )
     }
 };
 
-void player_update( tile_t * map, sprite_t * sprite )
+void player_update( map_t * map, sprite_t * sprite, camera_t * camera )
 {
     switch ( sprite->specific.player.state )
     {
@@ -126,6 +126,30 @@ void player_update( tile_t * map, sprite_t * sprite )
         }
         break;
     }
+
+	// Keep player in X bounds.
+	if ( sprite->x < 0.0f )
+	{
+		sprite->x = 0.0f;
+		if ( sprite->vx < 0.0f )
+		{
+			sprite->vx *= -0.25f;
+		}
+	}
+	else
+	{
+		const float xdiff = ( sprite->x + sprite->w ) - map->width * 16.0f;
+		if ( xdiff > 0.0f )
+		{
+			sprite->x -= xdiff;
+			if ( sprite->vx > 0.0f )
+			{
+				sprite->vx *= -0.25f;
+			}
+		}
+	}
+
+	camera_follow_sprite( camera, sprite, map );
 }
 
 static unsigned int sprite_player_going_fast( sprite_t * sprite )
@@ -133,7 +157,7 @@ static unsigned int sprite_player_going_fast( sprite_t * sprite )
 	return fabs( sprite->vx ) >= sprite->specific.player.maxspeed * 1.5f;
 }
 
-static void player_update_climbing( const tile_t * map, sprite_t * player )
+static void player_update_climbing( map_t * map, sprite_t * player )
 {
 	const float climb_max_speed = player->isunderwater ? 0.5f * 0.75f : 0.75f;
 
@@ -215,7 +239,7 @@ static void player_update_climbing( const tile_t * map, sprite_t * player )
 	}
 }
 
-static void player_update_normal( tile_t * map, sprite_t * sprite )
+static void player_update_normal( map_t * map, sprite_t * sprite )
 {
 	// Set max speed based on various aspects o’ player state.
 	sprite->maxspeed = sprite->isunderwater
@@ -429,7 +453,7 @@ static void player_update_normal( tile_t * map, sprite_t * sprite )
 	sprite->h = sprite->specific.player.isducking ? 16.0f : 26.0f;
 }
 
-static void player_update_sliding( const tile_t * map, sprite_t * player )
+static void player_update_sliding( map_t * map, sprite_t * player )
 {
 	// Update X movement based on max speed & acceleration determined by slope size on 1st entering slope state,
 	// halved if swimming.
@@ -490,7 +514,7 @@ static void player_update_sliding( const tile_t * map, sprite_t * player )
 			continue;
 		}
 
-		const tile_t tile = map[ vbtiley * WINDOW_WIDTH_BLOCKS + vctilex ];
+		const tile_t tile = map_get_tile( map, vctilex, vbtiley );
 
 		if ( !is_tile_slope( tile ) )
 		{
@@ -525,7 +549,7 @@ static void player_update_sliding( const tile_t * map, sprite_t * player )
 	}
 }
 
-static void player_update_sliding_end( const tile_t * map, sprite_t * player )
+static void player_update_sliding_end( map_t * map, sprite_t * player )
 {
 	// End sliding early if jumping.
 	if ( player->onground > 0.0f && !player->specific.player.jumplock && input_pressed_jump() )

@@ -5,7 +5,7 @@
 #include <GL/glew.h>
 #include <SDL_opengl.h>
 
-#define MAX_GRAPHICS 2000
+#define MAX_GRAPHICS 10000
 
 typedef struct graphic_data_t
 {
@@ -29,6 +29,7 @@ static GLuint vao;
 static GLuint graphics_vbo;
 static graphic graphics[ MAX_GRAPHICS ];
 static graphic_data_t graphics_data[ MAX_GRAPHICS ];
+static GLuint u_camera_location;
 static struct
 {
 	unsigned int up : 1;
@@ -92,6 +93,8 @@ int engine_init( const char * title )
 		"layout(location = 1) in vec4 rect;\n"
 		"layout(location = 2) in vec4 color;\n"
 		"\n"
+		"uniform vec2 u_camera;\n"
+		"\n"
 		"out vec4 o_color;\n"
 		"\n"
 		"void main()\n"
@@ -101,7 +104,13 @@ int engine_init( const char * title )
 		"		0.0, rect.w, rect.y,\n"
 		"		0.0, 0.0, 1.0\n"
 		"	);\n"
-		"	gl_Position = vec4( vec3( position, 1.0 ) * model, 1.0 );\n"
+		"	mat3 cam = mat3(\n"
+		"		1.0, 0.0, -u_camera.x,\n"
+		"		0.0, 1.0, u_camera.y,\n"
+		"		0.0, 0.0, 1.0\n"
+		"	);\n"
+		"	vec3 pos = vec3( position, 1.0 ) * model * cam;\n"
+		"	gl_Position = vec4( pos, 1.0 );\n"
 		"	o_color = color;\n"
 		"}\n";
 	
@@ -171,6 +180,10 @@ int engine_init( const char * title )
 	glEnableVertexAttribArray( 2 );
 	glVertexAttribDivisor( 2, 1 );
     glBindBuffer( GL_ARRAY_BUFFER, 0 );
+
+	// Set up camera uniform.
+	u_camera_location = glGetUniformLocation( program, "u_camera" );
+	glUniform2f( u_camera_location, 0.0f, 0.0f );
 
 	// Don't draw back faces.
 	glCullFace( GL_BACK );
@@ -253,13 +266,16 @@ int engine_loop()
 	return 1;
 }
 
-void engine_render()
+void engine_render( const camera_t * camera )
 {
 	// Clear the screen.
 	glClearColor( 0.0f, 0.0f, 0.0f, 1.0f );
 	glClear( GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT );
 
 	glUseProgram( program );
+
+	// Update camera.
+	glUniform2f( u_camera_location, camera->x * 2.0f / WINDOW_WIDTH_PIXELS_F, camera->y * 2.0f / WINDOW_HEIGHT_PIXELS_F );
 
 	// Update graphics data.
 	glBindBuffer( GL_ARRAY_BUFFER, graphics_vbo );
