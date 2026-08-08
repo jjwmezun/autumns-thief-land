@@ -2,10 +2,11 @@
 #include "engine.h"
 #include "map.h"
 #include <stdio.h>
-#include "player.h"
 #include "rand.h"
 #include "sprite.h"
 #include "tile.h"
+
+#define SPRITE_COUNT 6
 
 static unsigned int running = 1;
 static float prev_ticks = 0.0f;
@@ -31,11 +32,15 @@ int main()
 	// Init map.
 	tile_t * map = create_map();
 
-	// Init player sprite.
-	player_t player = player_create( 6.0f, 16.0f );
-
 	// Init other sprites.
-	sprite_t sprite = sprite_create( 20.0f, 16.0f, SPRITE_TYPE_HYDRANT );
+	sprite_t sprites[ SPRITE_COUNT ] = {
+		sprite_create( 16.0f, 15.0f, SPRITE_TYPE_PLAYER ),
+		sprite_create( 10.0f, 15.0f, SPRITE_TYPE_APPLE ),
+		sprite_create( 22.0f, 15.0f, SPRITE_TYPE_POLLO_STILL ),
+		sprite_create( 22.0f, 15.0f, SPRITE_TYPE_BEE_SPIN ),
+		sprite_create( 22.0f, 15.0f, SPRITE_TYPE_POLLO_MOVE_HORIZONTAL ),
+		sprite_create( 13.0f, 15.0f, SPRITE_TYPE_CRAB )
+	};
 
 	add_priority_map_graphics( map );
 
@@ -60,11 +65,17 @@ int main()
 		running = engine_loop();
 
 		// Update sprites.
-        player_update( map, &player );
-		sprite_update( map, &sprite );
-
-		// Handle sprite interaction.
-		player_interact_with_sprite( &player, &sprite );
+		for ( size_t i = 0; i < SPRITE_COUNT; ++i )
+		{
+			sprite_update( map, &sprites[ i ] );
+			for ( size_t j = 0; j < SPRITE_COUNT; ++j )
+			{
+				if ( i != j )
+				{
+					sprite_interact( &sprites[ i ], &sprites[ j ] );
+				}
+			}
+		}
 
 		engine_render();
 
