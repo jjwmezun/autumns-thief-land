@@ -1,9 +1,10 @@
 #ifndef SPRITE_H
 #define SPRITE_H
 
+#include "camera.h"
 #include "engine.h"
 #include <stdint.h>
-#include "tile.h"
+#include "map.h"
 
 #define SPRITE_TYPE_PLAYER                 0
 #define SPRITE_TYPE_APPLE                  1
@@ -143,7 +144,7 @@ typedef struct sprite_t
 } sprite_t;
 
 sprite_t sprite_create( float x, float y, uint8_t type );
-void sprite_update( tile_t * map, sprite_t * sprite );
+void sprite_update( map_t * map, sprite_t * sprite, camera_t * camera );
 void sprite_interact( sprite_t * a, sprite_t * b );
 
 void sprite_interact_move_toward( sprite_t * a, sprite_t * b );
@@ -151,19 +152,19 @@ unsigned int sprite_interact_test_bop( sprite_t * a, sprite_t * b, float padding
 unsigned int sprite_interact_test_top_collision( sprite_t * a, sprite_t * b, float padding );
 void sprite_interact_test_harm( sprite_t * a, sprite_t * b );
 void sprite_fall( sprite_t * sprite );
-void sprite_falling_and_jumping( const tile_t * map, sprite_t * sprite );
+void sprite_falling_and_jumping( const map_t * map, sprite_t * sprite );
 void sprite_jump( sprite_t * sprite );
 void sprite_jump_when_on_ground( sprite_t * sprite );
-void sprite_map_interaction( const tile_t * map, sprite_t * sprite );
+void sprite_map_interaction( const map_t * map, sprite_t * sprite );
 void sprite_move_in_direction( sprite_t * sprite );
 void sprite_move_x( sprite_t * sprite );
-unsigned int sprite_slope_physics( const tile_t * map, sprite_t * sprite, float ypoint );
-collision_t sprite_test_bottom_collision( const tile_t * map, sprite_t * sprite, unsigned int ( * test )( tile_t ) );
-collision_t sprite_test_horizontal_collision( const tile_t * map, sprite_t * sprite, unsigned int ( * test )( tile_t ), int x );
-collision_t sprite_test_left_collision( const tile_t * map, sprite_t * sprite, unsigned int ( * test )( tile_t ) );
-collision_t sprite_test_right_collision( const tile_t * map, sprite_t * sprite, unsigned int ( * test )( tile_t ) );
-collision_t sprite_test_top_collision( const tile_t * map, sprite_t * sprite, unsigned int ( * test )( tile_t ) );
-collision_t sprite_test_vertical_collision( const tile_t * map, sprite_t * sprite, unsigned int ( * test )( tile_t ), int y );
+unsigned int sprite_slope_physics( const map_t * map, sprite_t * sprite, float ypoint );
+collision_t sprite_test_bottom_collision( const map_t * map, sprite_t * sprite, unsigned int ( * test )( tile_t ) );
+collision_t sprite_test_horizontal_collision( const map_t * map, sprite_t * sprite, unsigned int ( * test )( tile_t ), int x );
+collision_t sprite_test_left_collision( const map_t * map, sprite_t * sprite, unsigned int ( * test )( tile_t ) );
+collision_t sprite_test_right_collision( const map_t * map, sprite_t * sprite, unsigned int ( * test )( tile_t ) );
+collision_t sprite_test_top_collision( const map_t * map, sprite_t * sprite, unsigned int ( * test )( tile_t ) );
+collision_t sprite_test_vertical_collision( const map_t * map, sprite_t * sprite, unsigned int ( * test )( tile_t ), int y );
 void sprite_turn_on_collision( sprite_t * sprite );
 
 #endif // SPRITE_H
