@@ -5,23 +5,38 @@
 #include <inttypes.h>
 #include <stddef.h>
 
-typedef struct rect {
+typedef struct pair
+{
+	float x, y;
+}
+pair;
+
+typedef struct rect
+{
 	float x, y, w, h;
-} rect;
+}
+rect;
 
-typedef struct color {
+typedef struct color
+{
 	float r, g, b, a;
-} color;
+}
+color;
 
-typedef struct graphic {
+typedef struct graphic
+{
 	rect rect;
 	color color;
-} graphic;
+}
+graphic;
 
-typedef struct sprite {
+typedef struct sprite
+{
 	rect rect;
 	rect texcoords;
-} sprite;
+	pair pair;
+}
+sprite;
 
 typedef uint_fast16_t graphic_id_t;
 typedef uint_fast16_t sprite_id_t;
@@ -38,6 +53,7 @@ void engine_set_graphic_x( graphic_id_t graphic_id, float x );
 void engine_set_graphic_y( graphic_id_t graphic_id, float y );
 void engine_set_palette_index( float index );
 void engine_set_palettes( unsigned char * colors, size_t palette_count );
+void engine_set_sprite_flip_x( sprite_id_t sprite_id, unsigned int flip_x );
 void engine_set_sprite_src_h( sprite_id_t sprite_id, float h );
 void engine_set_sprite_src_x( sprite_id_t sprite_id, float x );
 void engine_set_sprite_h( sprite_id_t sprite_id, float h );

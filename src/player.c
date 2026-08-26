@@ -156,6 +156,7 @@ void player_update( map_t * map, sprite_t * sprite, camera_t * camera )
 	engine_set_sprite_h( sprite->graphics, sprite->h );
 	engine_set_sprite_x( sprite->graphics, sprite->x );
 	engine_set_sprite_y( sprite->graphics, sprite->y - sprite->h );
+	engine_set_sprite_flip_x( sprite->graphics, sprite->dirx );
 }
 
 static unsigned int sprite_player_going_fast( sprite_t * sprite )
@@ -207,10 +208,12 @@ static void player_update_climbing( map_t * map, sprite_t * player )
 	if ( input_pressed_left() )
 	{
 		player->accx = -player->startspeed;
+		player->dirx = SPRITE_DIRX_LEFT;
 	}
 	else if ( input_pressed_right() )
 	{
 		player->accx = player->startspeed;
+		player->dirx = SPRITE_DIRX_RIGHT;
 	}
 	else
 	{
@@ -336,10 +339,12 @@ static void player_update_normal( map_t * map, sprite_t * sprite )
 	if ( ! ( sprite->specific.player.isducking && sprite->onground ) && input_pressed_left() )
 	{
 		sprite->accx = -startspeedx;
+		sprite->dirx = SPRITE_DIRX_LEFT;
 	}
 	else if ( ! ( sprite->specific.player.isducking && sprite->onground ) && input_pressed_right() )
 	{
 		sprite->accx = startspeedx;
+		sprite->dirx = SPRITE_DIRX_RIGHT;
 	}
 	else
 	{

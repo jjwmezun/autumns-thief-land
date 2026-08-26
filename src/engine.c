@@ -102,6 +102,7 @@ sprite_id_t engine_add_sprite( rect pos, rect texcoords )
 	texcoords.x /= 1024.0f;
 	texcoords.y /= 1024.0f;
 	sprites[ sprites_count ].texcoords = texcoords;
+	sprites[ sprites_count ].pair = ( pair ){ 1.0f, 1.0f };
 	return sprites_count++;
 }
 
@@ -291,6 +292,11 @@ void engine_set_palettes( unsigned char * colors, size_t palette_count )
 	glTexImage2D( GL_TEXTURE_2D, 0, GL_RGB5_A1, 8, palette_count, 0, GL_RGBA, GL_UNSIGNED_SHORT_5_5_5_1, colors );
 	glTexParameteri( GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST );
 	glTexParameteri( GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST );
+}
+
+void engine_set_sprite_flip_x( sprite_id_t sprite_id, unsigned int flip_x )
+{
+	sprites[ sprite_id ].pair.x = flip_x ? -1.0f : 1.0f;
 }
 
 void engine_set_sprite_src_h( sprite_id_t sprite_id, float h )
@@ -515,6 +521,7 @@ static void init_sprite_renderer()
 		"layout(location = 1) in vec2 i_texture_coords;\n"
 		"layout(location = 2) in vec4 i_pos;\n"
 		"layout(location = 3) in vec4 i_texcoords;\n"
+		"layout(location = 4) in vec2 i_flip;\n"
 		"\n"
 		"uniform vec2 u_camera;\n"
 		"\n"
@@ -537,7 +544,7 @@ static void init_sprite_renderer()
 		"		0.0, i_texcoords.w, i_texcoords.y,\n"
 		"		0.0, 0.0, 1.0\n"
 		"	);\n"
-		"	vec3 pos = vec3( i_position, 1.0 ) * model * cam;\n"
+		"	vec3 pos = vec3( i_position * i_flip, 1.0 ) * model * cam;\n"
 		"	gl_Position = vec4( pos, 1.0 );\n"
 		"	vec3 tex = vec3( i_texture_coords, 1.0 ) * texmodel;\n"
 		"	o_texture_coords = tex.xy;\n"
@@ -598,6 +605,9 @@ static void init_sprite_renderer()
 	glVertexAttribPointer( 3, 4, GL_FLOAT, GL_FALSE, sizeof( sprite ), ( void * )( sizeof( rect ) ) );
 	glEnableVertexAttribArray( 3 );
 	glVertexAttribDivisor( 3, 1 );
+	glVertexAttribPointer( 4, 2, GL_FLOAT, GL_FALSE, sizeof( sprite ), ( void * )( sizeof( rect ) * 2 ) );
+	glEnableVertexAttribArray( 4 );
+	glVertexAttribDivisor( 4, 1 );
     glBindBuffer( GL_ARRAY_BUFFER, 0 );
 
 	GLuint sprite_u_texture_location = glGetUniformLocation( sprite_program, "u_texture" );
