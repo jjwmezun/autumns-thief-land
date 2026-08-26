@@ -4,6 +4,7 @@ project(AutumnsThiefLand)
 set(OpenGL_GL_PREFERENCE "GLVND")
 add_executable(AutumnsThiefLand
     src/camera.c
+    src/data.c
     src/engine.c
     src/main.c
     src/map.c
@@ -22,6 +23,7 @@ find_path(GLEW_INCLUDE_DIR GL/glew.h)
 find_path(GLU_INCLUDE_DIR GL/glu.h)
 include_directories(${SDL2_INCLUDE_DIRS})
 include_directories(include)
+target_link_libraries(AutumnsThiefLand brotlienc brotlidec brotlicommon)
 target_link_libraries(AutumnsThiefLand ${OPENGL_LIBRARIES})
 target_link_libraries(AutumnsThiefLand ${GLEW_LIBRARIES})
 target_link_libraries(AutumnsThiefLand SDL2)

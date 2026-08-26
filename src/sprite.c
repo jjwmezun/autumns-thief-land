@@ -62,7 +62,7 @@ sprite_t sprite_create( float x, float y, uint8_t type )
 		case SPRITE_TYPE_PLAYER:
 		{
 			sprite.w = 16.0f;
-			sprite.h = 26.0f;
+			sprite.h = 28.0f;
 			sprite.specific.player.startspeed = sprite.startspeed;
 			sprite.specific.player.maxspeed = sprite.maxspeed;
 			sprite.specific.player.maxjump = sprite.maxjump;
@@ -72,6 +72,11 @@ sprite_t sprite_create( float x, float y, uint8_t type )
 			sprite.specific.player.isducking = 0;
 			sprite.specific.player.jumplock = 0;
 			sprite.specific.player.state = SPRITE_PLAYER_STATE_NORMAL;
+
+			sprite.graphics = engine_add_sprite(
+				( rect ){ sprite.x, sprite.y, sprite.w, sprite.h },
+				( rect ){ 512.0f, 0.0f, sprite.w, sprite.h }
+			);
 		}
 		break;
 		case SPRITE_TYPE_APPLE:
@@ -152,30 +157,33 @@ sprite_t sprite_create( float x, float y, uint8_t type )
 		break;
 	}
 
-	sprite.graphics.rect = engine_add_graphic(
-		( rect ){ sprite.x, sprite.y, sprite.w, sprite.h },
-		( color ){ 1.0f, 0.0f, 0.0f, 1.0f }
-	);
-	sprite.graphics.lcollision = engine_add_graphic(
-		( rect ){ BOUNDLX( &sprite ), BOUNDLRY( &sprite ), 1.0f, BOUNDLRH( &sprite ) },
-		( color ){ 0.0f, 0.5f, 0.5f, 1.0f }
-	);
-	sprite.graphics.rcollision = engine_add_graphic(
-		( rect ){ BOUNDRX( &sprite ) - 1.0f, BOUNDLRY( &sprite ), 1.0f, BOUNDLRH( &sprite ) },
-		( color ){ 0.0f, 0.5f, 0.5f, 1.0f }
-	);
-	sprite.graphics.bcollision = engine_add_graphic(
-		( rect ){ BOUNDTBX( &sprite ), BOUNDBY( &sprite ) - 1.0f, BOUNDTBW( &sprite ), 1.0f },
-		( color ){ 0.0f, 0.5f, 0.5f, 1.0f }
-	);
-	sprite.graphics.tcollision = engine_add_graphic(
-		( rect ){ BOUNDTBX( &sprite ), BOUNDTY( &sprite ), BOUNDTBW( &sprite ), 1.0f },
-		( color ){ 0.0f, 0.5f, 0.5f, 1.0f }
-	);
-	sprite.graphics.slopepoint = engine_add_graphic(
-		( rect ){ SLOPEPOINTX( &sprite ), SLOPEPOINTY( &sprite ), 1.0f, 1.0f },
-		( color ){ 0.0f, 0.5f, 0.5f, 1.0f }
-	);
+	#ifdef DEBUG
+		sprite.graphics.rect = engine_add_graphic(
+			( rect ){ sprite.x, sprite.y, sprite.w, sprite.h },
+			( color ){ 1.0f, 0.0f, 0.0f, 1.0f }
+		);
+		sprite.graphics.lcollision = engine_add_graphic(
+			( rect ){ BOUNDLX( &sprite ), BOUNDLRY( &sprite ), 1.0f, BOUNDLRH( &sprite ) },
+			( color ){ 0.0f, 0.5f, 0.5f, 1.0f }
+		);
+		sprite.graphics.rcollision = engine_add_graphic(
+			( rect ){ BOUNDRX( &sprite ) - 1.0f, BOUNDLRY( &sprite ), 1.0f, BOUNDLRH( &sprite ) },
+			( color ){ 0.0f, 0.5f, 0.5f, 1.0f }
+		);
+		sprite.graphics.bcollision = engine_add_graphic(
+			( rect ){ BOUNDTBX( &sprite ), BOUNDBY( &sprite ) - 1.0f, BOUNDTBW( &sprite ), 1.0f },
+			( color ){ 0.0f, 0.5f, 0.5f, 1.0f }
+		);
+		sprite.graphics.tcollision = engine_add_graphic(
+			( rect ){ BOUNDTBX( &sprite ), BOUNDTY( &sprite ), BOUNDTBW( &sprite ), 1.0f },
+			( color ){ 0.0f, 0.5f, 0.5f, 1.0f }
+		);
+		sprite.graphics.slopepoint = engine_add_graphic(
+			( rect ){ SLOPEPOINTX( &sprite ), SLOPEPOINTY( &sprite ), 1.0f, 1.0f },
+			( color ){ 0.0f, 0.5f, 0.5f, 1.0f }
+		);
+	#endif
+
 	return sprite;
 }
 
@@ -494,27 +502,29 @@ void sprite_update( map_t * map, sprite_t * sprite, camera_t * camera )
 		}
 	}
 
-	// Update sprite graphics.
-	engine_set_graphic_x( sprite->graphics.rect, sprite->x );
-	engine_set_graphic_y( sprite->graphics.rect, sprite->y - sprite->h );
-	engine_set_graphic_h( sprite->graphics.rect, sprite->h );
+	#ifdef DEBUG
+		// Update sprite graphics.
+		engine_set_graphic_x( sprite->graphics.rect, sprite->x );
+		engine_set_graphic_y( sprite->graphics.rect, sprite->y - sprite->h );
+		engine_set_graphic_h( sprite->graphics.rect, sprite->h );
 
-	engine_set_graphic_x( sprite->graphics.lcollision, BOUNDLX( sprite ) );
-	engine_set_graphic_y( sprite->graphics.lcollision, BOUNDLRY( sprite ) );
-	engine_set_graphic_h( sprite->graphics.lcollision, BOUNDLRH( sprite ) );
-	
-	engine_set_graphic_x( sprite->graphics.rcollision, BOUNDRX( sprite ) - 1.0f );
-	engine_set_graphic_y( sprite->graphics.rcollision, BOUNDLRY( sprite ) );
-	engine_set_graphic_h( sprite->graphics.rcollision, BOUNDLRH( sprite ) );
+		engine_set_graphic_x( sprite->graphics.lcollision, BOUNDLX( sprite ) );
+		engine_set_graphic_y( sprite->graphics.lcollision, BOUNDLRY( sprite ) );
+		engine_set_graphic_h( sprite->graphics.lcollision, BOUNDLRH( sprite ) );
+		
+		engine_set_graphic_x( sprite->graphics.rcollision, BOUNDRX( sprite ) - 1.0f );
+		engine_set_graphic_y( sprite->graphics.rcollision, BOUNDLRY( sprite ) );
+		engine_set_graphic_h( sprite->graphics.rcollision, BOUNDLRH( sprite ) );
 
-	engine_set_graphic_x( sprite->graphics.bcollision, BOUNDTBX( sprite ) );
-	engine_set_graphic_y( sprite->graphics.bcollision, BOUNDBY( sprite ) - 1.0f );
+		engine_set_graphic_x( sprite->graphics.bcollision, BOUNDTBX( sprite ) );
+		engine_set_graphic_y( sprite->graphics.bcollision, BOUNDBY( sprite ) - 1.0f );
 
-	engine_set_graphic_x( sprite->graphics.tcollision, BOUNDTBX( sprite ) );
-	engine_set_graphic_y( sprite->graphics.tcollision, BOUNDTY( sprite ) );
+		engine_set_graphic_x( sprite->graphics.tcollision, BOUNDTBX( sprite ) );
+		engine_set_graphic_y( sprite->graphics.tcollision, BOUNDTY( sprite ) );
 
-	engine_set_graphic_x( sprite->graphics.slopepoint, SLOPEPOINTX( sprite ) );
-	engine_set_graphic_y( sprite->graphics.slopepoint, SLOPEPOINTY( sprite ) );
+		engine_set_graphic_x( sprite->graphics.slopepoint, SLOPEPOINTX( sprite ) );
+		engine_set_graphic_y( sprite->graphics.slopepoint, SLOPEPOINTY( sprite ) );
+	#endif
 }
 
 void sprite_interact_move_toward( sprite_t * a, sprite_t * b )

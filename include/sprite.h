@@ -90,16 +90,22 @@ typedef struct sprite_t
 		hydrant;
 	}
 	specific;
-	struct
-	{
-		graphic_id_t rect;
-		graphic_id_t lcollision;
-		graphic_id_t rcollision;
-		graphic_id_t bcollision;
-		graphic_id_t tcollision;
-		graphic_id_t slopepoint;
-	}
-	graphics;
+
+	#ifdef DEBUG
+		struct
+		{
+			graphic_id_t rect;
+			graphic_id_t lcollision;
+			graphic_id_t rcollision;
+			graphic_id_t bcollision;
+			graphic_id_t tcollision;
+			graphic_id_t slopepoint;
+		}
+		graphics;
+	#endif
+
+	sprite_id_t graphics;
+
 	struct
 	{
 		float lpadding;

@@ -150,6 +150,12 @@ void player_update( map_t * map, sprite_t * sprite, camera_t * camera )
 	}
 
 	camera_follow_sprite( camera, sprite, map );
+
+	// Update graphics.
+	engine_set_sprite_src_h( sprite->graphics, sprite->h );
+	engine_set_sprite_h( sprite->graphics, sprite->h );
+	engine_set_sprite_x( sprite->graphics, sprite->x );
+	engine_set_sprite_y( sprite->graphics, sprite->y - sprite->h );
 }
 
 static unsigned int sprite_player_going_fast( sprite_t * sprite )
@@ -450,7 +456,7 @@ static void player_update_normal( map_t * map, sprite_t * sprite )
 	}
 
 	// Shrink player height if ducking or sliding.
-	sprite->h = sprite->specific.player.isducking ? 16.0f : 26.0f;
+	sprite->h = sprite->specific.player.isducking ? 16.0f : 28.0f;
 }
 
 static void player_update_sliding( map_t * map, sprite_t * player )
