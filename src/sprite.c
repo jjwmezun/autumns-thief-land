@@ -61,8 +61,8 @@ sprite_t sprite_create( float x, float y, uint8_t type )
 	{
 		case SPRITE_TYPE_PLAYER:
 		{
-			sprite.w = 16.0f;
-			sprite.h = 28.0f;
+			sprite.w = 18.0f;
+			sprite.h = 30.0f;
 			sprite.specific.player.startspeed = sprite.startspeed;
 			sprite.specific.player.maxspeed = sprite.maxspeed;
 			sprite.specific.player.maxjump = sprite.maxjump;
@@ -72,6 +72,9 @@ sprite_t sprite_create( float x, float y, uint8_t type )
 			sprite.specific.player.isducking = 0;
 			sprite.specific.player.jumplock = 0;
 			sprite.specific.player.state = SPRITE_PLAYER_STATE_NORMAL;
+			sprite.specific.player.walktimer = 0;
+			sprite.specific.player.walkanimation = 0;
+			sprite.hitbox.tpadding = 6.0f;
 
 			sprite.graphics = engine_add_sprite(
 				( rect ){ sprite.x, sprite.y, sprite.w, sprite.h },

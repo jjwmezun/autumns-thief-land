@@ -64,6 +64,8 @@ typedef struct sprite_t
 			unsigned int isducking : 1;
 			unsigned int jumplock : 1;
 			unsigned int prev_underwater : 1;
+			unsigned int walktimer : 3;
+			unsigned int walkanimation : 2;
 		}
 		player;
 		struct

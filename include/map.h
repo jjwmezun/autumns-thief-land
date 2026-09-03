@@ -3,7 +3,7 @@
 
 #include "tile.h"
 
-typedef struct map {
+typedef struct map_t {
     tile_t * tiles;
     int width;
     int height;

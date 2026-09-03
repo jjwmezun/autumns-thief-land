@@ -157,6 +157,42 @@ void player_update( map_t * map, sprite_t * sprite, camera_t * camera )
 	engine_set_sprite_x( sprite->graphics, sprite->x );
 	engine_set_sprite_y( sprite->graphics, sprite->y - sprite->h );
 	engine_set_sprite_flip_x( sprite->graphics, sprite->dirx );
+
+	if ( sprite->specific.player.isducking )
+	{
+		sprite->specific.player.walktimer = 0;
+		sprite->specific.player.walkanimation = 0;
+		engine_set_sprite_src_x( sprite->graphics, 512.0f + 72.0f );
+	}
+	else if ( ! sprite->onground )
+	{
+		sprite->specific.player.walktimer = 0;
+		sprite->specific.player.walkanimation = 0;
+		engine_set_sprite_src_x( sprite->graphics, 512.0f + 54.0f );
+	}
+	else
+	{
+		if ( sprite->accx != 0.0f )
+		{
+			++sprite->specific.player.walktimer;
+			if ( sprite->specific.player.walktimer == 0 )
+			{
+				++sprite->specific.player.walkanimation;
+			}
+			const float srcx = sprite->specific.player.walkanimation % 2 == 0
+				? 0.0f
+				: sprite->specific.player.walkanimation == 1
+					? 18.0f
+					: 36.0f;
+			engine_set_sprite_src_x( sprite->graphics, 512.0f + srcx );
+		}
+		else
+		{
+			sprite->specific.player.walktimer = 0;
+			sprite->specific.player.walkanimation = 0;
+			engine_set_sprite_src_x( sprite->graphics, 512.0f );
+		}
+	}
 }
 
 static unsigned int sprite_player_going_fast( sprite_t * sprite )
@@ -461,7 +497,7 @@ static void player_update_normal( map_t * map, sprite_t * sprite )
 	}
 
 	// Shrink player height if ducking or sliding.
-	sprite->h = sprite->specific.player.isducking ? 16.0f : 28.0f;
+	sprite->h = sprite->specific.player.isducking ? 21.0f : 30.0f;
 }
 
 static void player_update_sliding( map_t * map, sprite_t * player )

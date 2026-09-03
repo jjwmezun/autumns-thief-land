@@ -24,6 +24,9 @@ map_t create_map()
 		map.tiles[ ( map.height - 2 ) * map.width + x ] = create_solid_tile();
 	}
 
+	map.tiles[ ( map.height - 4 ) * map.width + 8 ] = create_solid_tile();
+	map.tiles[ ( map.height - 4 ) * map.width + 9 ] = create_solid_tile();
+
 	/*
 	// Create a simple map with solid blocks.
 	for ( size_t y = 0; y < map.height; ++y )
