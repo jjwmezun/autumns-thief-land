@@ -1153,8 +1153,8 @@ map_t create_map()
 
 	// Add BG.
 	engine_add_graphic(
-		( rect ){ 0.0f, 0.0f, ( float )( map.width * 16 ), ( float )( map.height * 16 ) },
-		( color ){ 1.0f, 1.0f, 1.0f, 1.0f }
+		( rect_t ){ 0.0f, 0.0f, ( float )( map.width * 16 ), ( float )( map.height * 16 ) },
+		( color_t ){ 1.0f, 1.0f, 1.0f, 1.0f }
 	);
 
 	// Add solid block graphics.
@@ -1166,15 +1166,32 @@ map_t create_map()
 			if ( is_tile_bouncy( tile ) )
 			{
 				engine_add_graphic(
-					( rect ){ 16.0f * ( float )( x ), 16.0f * ( float )( y ), 16.0f, 16.0f },
-					( color ){ 1.0f, 0.0f, 0.0f, 1.0f }
+					( rect_t ){ 16.0f * ( float )( x ), 16.0f * ( float )( y ), 16.0f, 16.0f },
+					( color_t ){ 1.0f, 0.0f, 0.0f, 1.0f }
 				);
 			}
 			else if ( is_tile_solid( tile ) )
 			{
+				/*
 				engine_add_graphic(
-					( rect ){ 16.0f * ( float )( x ), 16.0f * ( float )( y ), 16.0f, 16.0f },
-					( color ){ 0.0f, 0.0f, 0.0f, 1.0f }
+					( rect_t ){ 16.0f * ( float )( x ), 16.0f * ( float )( y ), 16.0f, 16.0f },
+					( color_t ){ 0.0f, 0.0f, 0.0f, 1.0f }
+				);*/
+				engine_add_tile(
+					( pair_t ){ 16.0f * ( float )( x ), 16.0f * ( float )( y ) },
+					( pair_t ){ 448.0f, 16.0f }
+				);
+				engine_add_tile(
+					( pair_t ){ 16.0f * ( float )( x ) + 8.0f, 16.0f * ( float )( y ) },
+					( pair_t ){ 456.0f, 16.0f }
+				);
+				engine_add_tile(
+					( pair_t ){ 16.0f * ( float )( x ), 16.0f * ( float )( y ) + 8.0f },
+					( pair_t ){ 448.0f, 24.0f }
+				);
+				engine_add_tile(
+					( pair_t ){ 16.0f * ( float )( x ) + 8.0f, 16.0f * ( float )( y ) + 8.0f },
+					( pair_t ){ 456.0f, 24.0f }
 				);
 			}
 			else if ( tile.type == TILE_SLOPE )
@@ -1191,58 +1208,58 @@ map_t create_map()
 						? ( float )( y * 16 )
 						: ( float )( y * 16 ) + ( 16.0f - sh );
 					engine_add_graphic(
-						( rect ){ 16.0f * ( float )( x ) + sx, sy, 1.0f, sh },
-						( color ){ 0.0f, 0.0f, 0.0f, 1.0f }
+						( rect_t ){ 16.0f * ( float )( x ) + sx, sy, 1.0f, sh },
+						( color_t ){ 0.0f, 0.0f, 0.0f, 1.0f }
 					);
 				}
 			}
 			else if ( is_tile_climb_solid_top( tile ) )
 			{
 				engine_add_graphic(
-					( rect ){ 16.0f * ( float )( x ) + 2.0f, 16.0f * ( float )( y ), 4.0f, 16.0f },
-					( color ){ 0.0f, 0.0f, 0.0f, 1.0f }
+					( rect_t ){ 16.0f * ( float )( x ) + 2.0f, 16.0f * ( float )( y ), 4.0f, 16.0f },
+					( color_t ){ 0.0f, 0.0f, 0.0f, 1.0f }
 				);
 				engine_add_graphic(
-					( rect ){ 16.0f * ( float )( x ) + 10.0f, 16.0f * ( float )( y ), 4.0f, 16.0f },
-					( color ){ 0.0f, 0.0f, 0.0f, 1.0f }
+					( rect_t ){ 16.0f * ( float )( x ) + 10.0f, 16.0f * ( float )( y ), 4.0f, 16.0f },
+					( color_t ){ 0.0f, 0.0f, 0.0f, 1.0f }
 				);
 				engine_add_graphic(
-					( rect ){ 16.0f * ( float )( x ) + 2.0f, 16.0f * ( float )( y ) + 2.0f, 12.0f, 4.0f },
-					( color ){ 0.0f, 0.0f, 0.0f, 1.0f }
+					( rect_t ){ 16.0f * ( float )( x ) + 2.0f, 16.0f * ( float )( y ) + 2.0f, 12.0f, 4.0f },
+					( color_t ){ 0.0f, 0.0f, 0.0f, 1.0f }
 				);
 				engine_add_graphic(
-					( rect ){ 16.0f * ( float )( x ) + 2.0f, 16.0f * ( float )( y ) + 10.0f, 12.0f, 4.0f },
-					( color ){ 0.0f, 0.0f, 0.0f, 1.0f }
+					( rect_t ){ 16.0f * ( float )( x ) + 2.0f, 16.0f * ( float )( y ) + 10.0f, 12.0f, 4.0f },
+					( color_t ){ 0.0f, 0.0f, 0.0f, 1.0f }
 				);
 				engine_add_graphic(
-					( rect ){ 16.0f * ( float )( x ), 16.0f * ( float )( y ), 16.0f, 4.0f },
-					( color ){ 0.0f, 0.0f, 0.0f, 1.0f }
+					( rect_t ){ 16.0f * ( float )( x ), 16.0f * ( float )( y ), 16.0f, 4.0f },
+					( color_t ){ 0.0f, 0.0f, 0.0f, 1.0f }
 				);
 			}
 			else if ( is_tile_climbable( tile ) )
 			{
 				engine_add_graphic(
-					( rect ){ 16.0f * ( float )( x ) + 2.0f, 16.0f * ( float )( y ), 4.0f, 16.0f },
-					( color ){ 0.0f, 0.0f, 0.0f, 1.0f }
+					( rect_t ){ 16.0f * ( float )( x ) + 2.0f, 16.0f * ( float )( y ), 4.0f, 16.0f },
+					( color_t ){ 0.0f, 0.0f, 0.0f, 1.0f }
 				);
 				engine_add_graphic(
-					( rect ){ 16.0f * ( float )( x ) + 10.0f, 16.0f * ( float )( y ), 4.0f, 16.0f },
-					( color ){ 0.0f, 0.0f, 0.0f, 1.0f }
+					( rect_t ){ 16.0f * ( float )( x ) + 10.0f, 16.0f * ( float )( y ), 4.0f, 16.0f },
+					( color_t ){ 0.0f, 0.0f, 0.0f, 1.0f }
 				);
 				engine_add_graphic(
-					( rect ){ 16.0f * ( float )( x ) + 2.0f, 16.0f * ( float )( y ) + 2.0f, 12.0f, 4.0f },
-					( color ){ 0.0f, 0.0f, 0.0f, 1.0f }
+					( rect_t ){ 16.0f * ( float )( x ) + 2.0f, 16.0f * ( float )( y ) + 2.0f, 12.0f, 4.0f },
+					( color_t ){ 0.0f, 0.0f, 0.0f, 1.0f }
 				);
 				engine_add_graphic(
-					( rect ){ 16.0f * ( float )( x ) + 2.0f, 16.0f * ( float )( y ) + 10.0f, 12.0f, 4.0f },
-					( color ){ 0.0f, 0.0f, 0.0f, 1.0f }
+					( rect_t ){ 16.0f * ( float )( x ) + 2.0f, 16.0f * ( float )( y ) + 10.0f, 12.0f, 4.0f },
+					( color_t ){ 0.0f, 0.0f, 0.0f, 1.0f }
 				);
 			}
 			else if ( is_tile_solid_top( tile ) )
 			{
 				engine_add_graphic(
-					( rect ){ 16.0f * ( float )( x ), 16.0f * ( float )( y ), 16.0f, 4.0f },
-					( color ){ 0.0f, 0.0f, 0.0f, 1.0f }
+					( rect_t ){ 16.0f * ( float )( x ), 16.0f * ( float )( y ), 16.0f, 4.0f },
+					( color_t ){ 0.0f, 0.0f, 0.0f, 1.0f }
 				);
 			}
 		}
@@ -1262,8 +1279,8 @@ void add_priority_map_graphics( const map_t * map )
 			if ( is_tile_underwater( tile ) )
 			{
 				engine_add_graphic(
-					( rect ){ 16.0f * ( float )( x ), 16.0f * ( float )( y ), 16.0f, 16.0f },
-					( color ){ 0.0f, 0.5f, 1.0f, 0.5f }
+					( rect_t ){ 16.0f * ( float )( x ), 16.0f * ( float )( y ), 16.0f, 16.0f },
+					( color_t ){ 0.0f, 0.5f, 1.0f, 0.5f }
 				);
 			}
 		}

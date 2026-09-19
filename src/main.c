@@ -15,6 +15,8 @@ static unsigned int running = 1;
 static float prev_ticks = 0.0f;
 static float maxdt = 0.0f;
 static float palette_index = 0.0f;
+static float timecounts[ 1000 ] = { 0.0f };
+static size_t timecount_index = 0;
 
 int main()
 {
@@ -35,8 +37,8 @@ int main()
 	// Init texture.
 	unsigned char pixels[ 1024 * 1024 ];
 	memset( pixels, 0, 1024 * 1024 );
-	unsigned char * block_gfx_data = data_get_block_gfx_data();
-	for ( size_t y = 0; y < 512; ++y )
+	unsigned char * block_gfx_data = data_get_universal_block_gfx_data();
+	for ( size_t y = 0; y < 64; ++y )
 	{
 		for ( size_t x = 0; x < 512; ++x )
 		{
@@ -58,11 +60,6 @@ int main()
 	unsigned char * colors = data_get_main_palette_data();
 	engine_set_palettes( colors, palette_count );
 	free( colors );
-
-	engine_add_sprite(
-		( rect ){ 32.0f, 16.0f, 16.0f, 28.0f },
-		( rect ){ 512.0f, 0.0f, 16.0f, 28.0f }
-	);
 
 	rand_init();
 
@@ -86,15 +83,15 @@ int main()
 	for ( size_t i = 0; i < map.width; ++i )
 	{
 		engine_add_graphic(
-			( rect ){ 16.0f * ( float )( i ) - 0.5f, 0.0f, 1.0f, ( float )( map.height * 16 ) },
-			( color ){ 0.0f, 0.0f, 1.0f, 0.5f }
+			( rect_t ){ 16.0f * ( float )( i ) - 0.5f, 0.0f, 1.0f, ( float )( map.height * 16 ) },
+			( color_t ){ 0.0f, 0.0f, 1.0f, 0.5f }
 		);
 	}
 	for ( size_t i = 0; i < map.height; ++i )
 	{
 		engine_add_graphic(
-			( rect ){ 0.0f, 16.0f * ( float )( i ) - 0.5f, ( float )( map.width * 16 ), 1.0f },
-			( color ){ 0.0f, 0.0f, 1.0f, 0.5f }
+			( rect_t ){ 0.0f, 16.0f * ( float )( i ) - 0.5f, ( float )( map.width * 16 ), 1.0f },
+			( color_t ){ 0.0f, 0.0f, 1.0f, 0.5f }
 		);
 	}
 
@@ -121,6 +118,10 @@ int main()
 		engine_render( &camera );
 
 		const float ticks = engine_get_ticks();
+		if ( timecount_index < 1000 )
+		{
+			timecounts[ timecount_index++ ] = ticks - prev_ticks;
+		}
 		if ( ticks - prev_ticks < 16.0f )
 		{
 			engine_sleep( 16 - ( ticks - prev_ticks ) );
@@ -129,7 +130,19 @@ int main()
 	}
 
 	// Test lowest FPS.
-	printf( "Max delta: %.5f seconds.\n", maxdt / 60.0f );
+	float maxtime = 0.0f;
+	float totaltime = 0.0f;
+	for ( size_t i = 0; i < timecount_index; ++i )
+	{
+		if ( timecounts[ i ] > maxtime )
+		{
+			maxtime = timecounts[ i ];
+		}
+		totaltime += timecounts[ i ];
+	}
+	float avgtime = totaltime / timecount_index;
+	printf( "Max time: %.5f seconds.\n", maxtime / 60.0f );
+	printf( "Avg time: %.5f seconds.\n", avgtime / 60.0f );
 
 	return 0;
 }

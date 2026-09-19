@@ -5,44 +5,31 @@
 #include <inttypes.h>
 #include <stddef.h>
 
-typedef struct pair
+typedef struct pair_t
 {
 	float x, y;
 }
-pair;
+pair_t;
 
-typedef struct rect
+typedef struct rect_t
 {
 	float x, y, w, h;
 }
-rect;
+rect_t;
 
-typedef struct color
+typedef struct color_t
 {
 	float r, g, b, a;
 }
-color;
-
-typedef struct graphic
-{
-	rect rect;
-	color color;
-}
-graphic;
-
-typedef struct sprite
-{
-	rect rect;
-	rect texcoords;
-	pair pair;
-}
-sprite;
+color_t;
 
 typedef uint_fast16_t graphic_id_t;
 typedef uint_fast16_t sprite_id_t;
+typedef uint_fast16_t tile_id_t;
 
-graphic_id_t engine_add_graphic( rect rect, color color );
-sprite_id_t engine_add_sprite( rect pos, rect texcoords );
+graphic_id_t engine_add_graphic( rect_t rect, color_t color );
+sprite_id_t engine_add_sprite( rect_t pos, rect_t texcoords );
+tile_id_t engine_add_tile( pair_t pos, pair_t texpos );
 void engine_change_texture( const unsigned char * pixels );
 float engine_get_ticks();
 int engine_init( const char * title );

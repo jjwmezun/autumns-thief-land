@@ -77,8 +77,8 @@ sprite_t sprite_create( float x, float y, uint8_t type )
 			sprite.hitbox.tpadding = 6.0f;
 
 			sprite.graphics = engine_add_sprite(
-				( rect ){ sprite.x, sprite.y, sprite.w, sprite.h },
-				( rect ){ 512.0f, 0.0f, sprite.w, sprite.h }
+				( rect_t ){ sprite.x, sprite.y, sprite.w, sprite.h },
+				( rect_t ){ 512.0f, 0.0f, sprite.w, sprite.h }
 			);
 		}
 		break;
@@ -162,28 +162,28 @@ sprite_t sprite_create( float x, float y, uint8_t type )
 
 	#ifdef DEBUG
 		sprite.graphics.rect = engine_add_graphic(
-			( rect ){ sprite.x, sprite.y, sprite.w, sprite.h },
-			( color ){ 1.0f, 0.0f, 0.0f, 1.0f }
+			( rect_t ){ sprite.x, sprite.y, sprite.w, sprite.h },
+			( color_t ){ 1.0f, 0.0f, 0.0f, 1.0f }
 		);
 		sprite.graphics.lcollision = engine_add_graphic(
-			( rect ){ BOUNDLX( &sprite ), BOUNDLRY( &sprite ), 1.0f, BOUNDLRH( &sprite ) },
-			( color ){ 0.0f, 0.5f, 0.5f, 1.0f }
+			( rect_t ){ BOUNDLX( &sprite ), BOUNDLRY( &sprite ), 1.0f, BOUNDLRH( &sprite ) },
+			( color_t ){ 0.0f, 0.5f, 0.5f, 1.0f }
 		);
 		sprite.graphics.rcollision = engine_add_graphic(
-			( rect ){ BOUNDRX( &sprite ) - 1.0f, BOUNDLRY( &sprite ), 1.0f, BOUNDLRH( &sprite ) },
-			( color ){ 0.0f, 0.5f, 0.5f, 1.0f }
+			( rect_t ){ BOUNDRX( &sprite ) - 1.0f, BOUNDLRY( &sprite ), 1.0f, BOUNDLRH( &sprite ) },
+			( color_t ){ 0.0f, 0.5f, 0.5f, 1.0f }
 		);
 		sprite.graphics.bcollision = engine_add_graphic(
-			( rect ){ BOUNDTBX( &sprite ), BOUNDBY( &sprite ) - 1.0f, BOUNDTBW( &sprite ), 1.0f },
-			( color ){ 0.0f, 0.5f, 0.5f, 1.0f }
+			( rect_t ){ BOUNDTBX( &sprite ), BOUNDBY( &sprite ) - 1.0f, BOUNDTBW( &sprite ), 1.0f },
+			( color_t ){ 0.0f, 0.5f, 0.5f, 1.0f }
 		);
 		sprite.graphics.tcollision = engine_add_graphic(
-			( rect ){ BOUNDTBX( &sprite ), BOUNDTY( &sprite ), BOUNDTBW( &sprite ), 1.0f },
-			( color ){ 0.0f, 0.5f, 0.5f, 1.0f }
+			( rect_t ){ BOUNDTBX( &sprite ), BOUNDTY( &sprite ), BOUNDTBW( &sprite ), 1.0f },
+			( color_t ){ 0.0f, 0.5f, 0.5f, 1.0f }
 		);
 		sprite.graphics.slopepoint = engine_add_graphic(
-			( rect ){ SLOPEPOINTX( &sprite ), SLOPEPOINTY( &sprite ), 1.0f, 1.0f },
-			( color ){ 0.0f, 0.5f, 0.5f, 1.0f }
+			( rect_t ){ SLOPEPOINTX( &sprite ), SLOPEPOINTY( &sprite ), 1.0f, 1.0f },
+			( color_t ){ 0.0f, 0.5f, 0.5f, 1.0f }
 		);
 	#endif
 

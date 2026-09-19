@@ -7,28 +7,60 @@
 
 #define MAX_GRAPHICS 10000
 #define MAX_SPRITES 10000
+#define MAX_TILES 10000
 
 typedef struct graphic_data_t
 {
-	rect abspos;
+	rect_t abspos;
 }
 graphic_data_t;
 
 typedef struct sprite_data_t
 {
-	rect pos;
-	rect texcoords;
+	rect_t pos;
+	rect_t texcoords;
 }
 sprite_data_t;
 
-static float convert_graphic_h( rect rect, float h );
-static float convert_graphic_x( rect rect, float x );
-static float convert_graphic_y( rect rect, float y );
+typedef struct tile_data_t
+{
+	pair_t pos;
+	pair_t texpos;
+}
+tile_data_t;
+
+typedef struct sprite_graphic_t
+{
+	rect_t rect;
+	rect_t texcoords;
+	pair_t flip;
+}
+sprite_graphic_t;
+
+typedef struct graphic_t
+{
+	rect_t rect;
+	color_t color;
+}
+graphic_t;
+
+typedef struct tile_graphic_t
+{
+	pair_t pos;
+	pair_t texpos;
+}
+tile_graphic_t;
+
+static float convert_graphic_h( rect_t rect, float h );
+static float convert_graphic_x( rect_t rect, float x );
+static float convert_graphic_y( rect_t rect, float y );
 static GLuint create_shader_program( const char * vertex_shader_src, const char * fragment_shader_src );
 static void init_rect_renderer();
 static void init_sprite_renderer();
+static void init_tile_renderer();
 static void render_rects( const camera_t * camera );
 static void render_sprites( const camera_t * camera );
+static void render_tiles( const camera_t * camera );
 static void update_screen();
 static void update_viewport();
 
@@ -40,20 +72,28 @@ static SDL_Window * window;
 static GLuint program;
 static GLuint vao;
 static GLuint instances_vbo;
-static graphic graphics[ MAX_GRAPHICS ];
+static graphic_t graphics[ MAX_GRAPHICS ];
 static graphic_data_t graphics_data[ MAX_GRAPHICS ];
 static GLuint u_camera_location;
+static float palette_index = 0.0f;
+static GLuint main_texture;
+static GLuint palette_texture;
 static GLuint sprite_program;
 static GLuint sprite_vao;
 static GLuint sprite_instances_vbo;
-static GLuint sprite_texture;
-static GLuint sprite_palette_texture;
-static float sprite_palette_index = 0.0f;
 static GLuint sprite_palette_index_location;
 static GLuint sprite_camera_location;
 static sprite_id_t sprites_count = 0;
-static sprite sprites[ MAX_SPRITES ];
+static sprite_graphic_t sprites[ MAX_SPRITES ];
 static sprite_data_t sprites_data[ MAX_SPRITES ];
+static GLuint tile_program;
+static GLuint tile_vao;
+static GLuint tile_instances_vbo;
+static tile_graphic_t tiles[ MAX_TILES ];
+static tile_data_t tiles_data[ MAX_TILES ];
+static tile_id_t tiles_count = 0;
+static GLuint tile_palette_index_location;
+static GLuint tile_camera_location;
 static struct
 {
 	unsigned int up : 1;
@@ -64,7 +104,7 @@ static struct
 	unsigned int run : 1;
 } pressed;
 
-graphic_id_t engine_add_graphic( rect rect, color color )
+graphic_id_t engine_add_graphic( rect_t rect, color_t color )
 {
 	if ( graphics_count >= MAX_GRAPHICS )
 	{
@@ -82,7 +122,7 @@ graphic_id_t engine_add_graphic( rect rect, color color )
 	return graphics_count++;
 }
 
-sprite_id_t engine_add_sprite( rect pos, rect texcoords )
+sprite_id_t engine_add_sprite( rect_t pos, rect_t texcoords )
 {
 	if ( sprites_count >= MAX_SPRITES )
 	{
@@ -102,15 +142,38 @@ sprite_id_t engine_add_sprite( rect pos, rect texcoords )
 	texcoords.x /= 1024.0f;
 	texcoords.y /= 1024.0f;
 	sprites[ sprites_count ].texcoords = texcoords;
-	sprites[ sprites_count ].pair = ( pair ){ 1.0f, 1.0f };
+	sprites[ sprites_count ].flip = ( pair_t ){ 1.0f, 1.0f };
 	return sprites_count++;
+}
+
+tile_id_t engine_add_tile( pair_t pos, pair_t texpos )
+{
+	if ( tiles_count >= MAX_TILES )
+	{
+		fprintf( stderr, "Maximum number of tiles reached.\n" );
+		return 1;
+	}
+
+	tiles_data[ tiles_count ].pos = pos;
+	tiles_data[ tiles_count ].texpos = texpos;
+	const rect_t posrect = { pos.x, pos.y, 8.0f / WINDOW_WIDTH_PIXELS_F, 8.0f / WINDOW_HEIGHT_PIXELS_F };
+	pos.x = convert_graphic_x( posrect, pos.x );
+	pos.y = convert_graphic_y( posrect, pos.y );
+	tiles[ tiles_count ].pos = pos;
+	texpos.x /= 1024.0f;
+	texpos.y /= 1024.0f;
+	tiles[ tiles_count ].texpos = texpos;
+	return tiles_count++;
 }
 
 void engine_change_texture( const unsigned char * pixels )
 {
 	glActiveTexture( GL_TEXTURE0 );
-	glGenTextures( 1, &sprite_texture );
-	glBindTexture( GL_TEXTURE_2D, sprite_texture );
+	if ( main_texture == 0 )
+	{
+		glGenTextures( 1, &main_texture );
+	}
+	glBindTexture( GL_TEXTURE_2D, main_texture );
 	glTexImage2D( GL_TEXTURE_2D, 0, GL_RED, 1024, 1024, 0, GL_RED, GL_UNSIGNED_BYTE, pixels );
 	glTexParameteri( GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST );
 	glTexParameteri( GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST );
@@ -148,6 +211,7 @@ int engine_init( const char * title )
 
 	init_rect_renderer();
 	init_sprite_renderer();
+	init_tile_renderer();
 
 	// Don't draw back faces.
 	glCullFace( GL_BACK );
@@ -237,6 +301,7 @@ void engine_render( const camera_t * camera )
 	glClear( GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT );
 
 	render_rects( camera );
+	render_tiles( camera );
 	render_sprites( camera );
 
 	SDL_GL_SwapWindow( window );
@@ -281,14 +346,17 @@ void engine_set_graphic_y( graphic_id_t graphic_id, float y )
 
 void engine_set_palette_index( float index )
 {
-	sprite_palette_index = index;
+	palette_index = index;
 }
 
 void engine_set_palettes( unsigned char * colors, size_t palette_count )
 {
 	glActiveTexture( GL_TEXTURE1 );
-	glGenTextures( 1, &sprite_palette_texture );
-	glBindTexture( GL_TEXTURE_2D, sprite_palette_texture );
+	if ( palette_texture == 0 )
+	{
+		glGenTextures( 1, &palette_texture );
+	}
+	glBindTexture( GL_TEXTURE_2D, palette_texture );
 	glTexImage2D( GL_TEXTURE_2D, 0, GL_RGB5_A1, 8, palette_count, 0, GL_RGBA, GL_UNSIGNED_SHORT_5_5_5_1, colors );
 	glTexParameteri( GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST );
 	glTexParameteri( GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST );
@@ -296,7 +364,7 @@ void engine_set_palettes( unsigned char * colors, size_t palette_count )
 
 void engine_set_sprite_flip_x( sprite_id_t sprite_id, unsigned int flip_x )
 {
-	sprites[ sprite_id ].pair.x = flip_x ? -1.0f : 1.0f;
+	sprites[ sprite_id ].flip.x = flip_x ? -1.0f : 1.0f;
 }
 
 void engine_set_sprite_src_h( sprite_id_t sprite_id, float h )
@@ -393,17 +461,17 @@ unsigned int input_pressed_up()
 	return pressed.up;
 }
 
-static float convert_graphic_h( rect rect, float h )
+static float convert_graphic_h( rect_t rect, float h )
 {
 	return h /= WINDOW_HEIGHT_PIXELS_F;
 }
 
-static float convert_graphic_x( rect rect, float x )
+static float convert_graphic_x( rect_t rect, float x )
 {
 	return ( ( x / WINDOW_WIDTH_PIXELS_F - 0.5f ) * 2.0f + rect.w );
 }
 
-static float convert_graphic_y( rect rect, float y )
+static float convert_graphic_y( rect_t rect, float y )
 {
 	return ( ( ( y / WINDOW_HEIGHT_PIXELS_F - 0.5f ) * 2.0f + rect.h ) * -1.0f );
 }
@@ -501,10 +569,10 @@ static void init_rect_renderer()
 
 	glGenBuffers( 1, &instances_vbo );
 	glBindBuffer( GL_ARRAY_BUFFER, instances_vbo );
-	glVertexAttribPointer( 1, 4, GL_FLOAT, GL_FALSE, sizeof( graphic ), 0 );
+	glVertexAttribPointer( 1, 4, GL_FLOAT, GL_FALSE, sizeof( graphic_t ), 0 );
 	glEnableVertexAttribArray( 1 );
 	glVertexAttribDivisor( 1, 1 );
-	glVertexAttribPointer( 2, 4, GL_FLOAT, GL_FALSE, sizeof( graphic ), ( void * )( sizeof( rect ) ) );
+	glVertexAttribPointer( 2, 4, GL_FLOAT, GL_FALSE, sizeof( graphic_t ), ( void * )( sizeof( rect_t ) ) );
 	glEnableVertexAttribArray( 2 );
 	glVertexAttribDivisor( 2, 1 );
     glBindBuffer( GL_ARRAY_BUFFER, 0 );
@@ -545,11 +613,11 @@ static void init_sprite_renderer()
 		"		0.0, 0.0, 1.0\n"
 		"	);\n"
 		"	vec3 pos = vec3( i_position * i_flip, 1.0 ) * model * cam;\n"
-		"	gl_Position = vec4( pos, 1.0 );\n"
+		"	gl_Position = vec4( pos.xy, 0.0, 1.0 );\n"
 		"	vec3 tex = vec3( i_texture_coords, 1.0 ) * texmodel;\n"
 		"	o_texture_coords = tex.xy;\n"
 		"}\n";
-	
+
 	const char * fragment_shader_src = "#version 330\n"
 		"\n"
 		"in vec2 o_texture_coords;\n"
@@ -560,9 +628,15 @@ static void init_sprite_renderer()
 		"\n"
 		"void main()\n"
 		"{\n"
+		"	float color_index = texture( u_texture, o_texture_coords ).r;\n"
+		"	if ( color_index == 0.0f )\n"
+		"	{\n"
+		"		discard;\n"
+		"		return;\n"
+		"	}\n"
 		"	gl_FragColor = texture(\n"
 		"		u_palette_texture,\n"
-		"		vec2( texture( u_texture, o_texture_coords ).r, u_palette_index )\n"
+		"		vec2( color_index, u_palette_index )\n"
 		"	);\n"
 		"}\n";
 	
@@ -599,13 +673,13 @@ static void init_sprite_renderer()
 
 	glGenBuffers( 1, &sprite_instances_vbo );
 	glBindBuffer( GL_ARRAY_BUFFER, sprite_instances_vbo );
-	glVertexAttribPointer( 2, 4, GL_FLOAT, GL_FALSE, sizeof( sprite ), 0 );
+	glVertexAttribPointer( 2, 4, GL_FLOAT, GL_FALSE, sizeof( sprite_graphic_t ), 0 );
 	glEnableVertexAttribArray( 2 );
 	glVertexAttribDivisor( 2, 1 );
-	glVertexAttribPointer( 3, 4, GL_FLOAT, GL_FALSE, sizeof( sprite ), ( void * )( sizeof( rect ) ) );
+	glVertexAttribPointer( 3, 4, GL_FLOAT, GL_FALSE, sizeof( sprite_graphic_t ), ( void * )( sizeof( rect_t ) ) );
 	glEnableVertexAttribArray( 3 );
 	glVertexAttribDivisor( 3, 1 );
-	glVertexAttribPointer( 4, 2, GL_FLOAT, GL_FALSE, sizeof( sprite ), ( void * )( sizeof( rect ) * 2 ) );
+	glVertexAttribPointer( 4, 2, GL_FLOAT, GL_FALSE, sizeof( sprite_graphic_t ), ( void * )( sizeof( rect_t ) * 2 ) );
 	glEnableVertexAttribArray( 4 );
 	glVertexAttribDivisor( 4, 1 );
     glBindBuffer( GL_ARRAY_BUFFER, 0 );
@@ -622,8 +696,121 @@ static void init_sprite_renderer()
 	glUniform2f( sprite_camera_location, 0.0f, 0.0f );
 }
 
+static void init_tile_renderer()
+{
+	const char * vertex_shader_src = "#version 330\n"
+		"layout(location = 0) in vec2 i_position;\n"
+		"layout(location = 1) in vec2 i_texture_coords;\n"
+		"layout(location = 2) in vec2 i_pos;\n"
+		"layout(location = 3) in vec2 i_texcoords;\n"
+		"\n"
+		"uniform vec2 u_camera;\n"
+		"\n"
+		"out vec2 o_texture_coords;\n"
+		"\n"
+		"void main()\n"
+		"{\n"
+		"	mat3 model = mat3(\n"
+		"		8.0 / 512.0f, 0.0, i_pos.x,\n"
+		"		0.0, 8.0 / 288.0f, i_pos.y,\n"
+		"		0.0, 0.0, 1.0\n"
+		"	);\n"
+		"	mat3 cam = mat3(\n"
+		"		1.0, 0.0, -u_camera.x,\n"
+		"		0.0, 1.0, u_camera.y,\n"
+		"		0.0, 0.0, 1.0\n"
+		"	);\n"
+		"	mat3 texmodel = mat3(\n"
+		"		8.0 / 1024, 0.0, i_texcoords.x,\n"
+		"		0.0, 8.0 / 1024, i_texcoords.y,\n"
+		"		0.0, 0.0, 1.0\n"
+		"	);\n"
+		"	vec3 pos = vec3( i_position, 1.0 ) * model * cam;\n"
+		"	gl_Position = vec4( pos.xy, 0.0, 1.0 );\n"
+		"	vec3 tex = vec3( i_texture_coords, 1.0 ) * texmodel;\n"
+		"	o_texture_coords = tex.xy;\n"
+		"}\n";
+	
+	const char * fragment_shader_src = "#version 330\n"
+		"\n"
+		"in vec2 o_texture_coords;\n"
+		"\n"
+		"uniform sampler2D u_texture;\n"
+		"uniform sampler2D u_palette_texture;\n"
+		"uniform float u_palette_index;\n"
+		"\n"
+		"void main()\n"
+		"{\n"
+		"	float color_index = texture( u_texture, o_texture_coords ).r;\n"
+		"	if ( color_index == 0.0f )\n"
+		"	{\n"
+		"		discard;\n"
+		"		return;\n"
+		"	}\n"
+		"	gl_FragColor = texture(\n"
+		"		u_palette_texture,\n"
+		"		vec2( color_index, u_palette_index )\n"
+		"	);\n"
+		"}\n";
+	
+	tile_program = create_shader_program( vertex_shader_src, fragment_shader_src );
+
+	glUseProgram( tile_program );
+
+	float vertices[] = {
+		-1.0f, -1.0f, 0.0f, 1.0f, // Lower left
+		1.0f, -1.0f, 1.0f, 1.0f,  // Lower right
+		1.0f, 1.0f, 1.0f, 0.0f,   // Upper right
+		-1.0f, 1.0f, 0.0f, 0.0f,  // Upper left
+	};
+
+	int indices[] = {
+		0, 1, 3,
+		1, 2, 3
+	};
+
+	glGenVertexArrays( 1, &tile_vao );
+	glBindVertexArray( tile_vao );
+	GLuint vbo;
+	glGenBuffers( 1, &vbo );
+	glBindBuffer( GL_ARRAY_BUFFER, vbo );
+	glBufferData( GL_ARRAY_BUFFER, sizeof( vertices ), vertices, GL_STATIC_DRAW );
+	glVertexAttribPointer( 0, 2, GL_FLOAT, GL_FALSE, 4 * sizeof( float ), 0 );
+	glEnableVertexAttribArray( 0 );
+	glVertexAttribPointer( 1, 2, GL_FLOAT, GL_FALSE, 4 * sizeof( float ), ( void * )( 2 * sizeof( float ) ) );
+	glEnableVertexAttribArray( 1 );
+	GLuint ebo;
+	glGenBuffers( 1, &ebo );
+	glBindBuffer( GL_ELEMENT_ARRAY_BUFFER, ebo );
+	glBufferData( GL_ELEMENT_ARRAY_BUFFER, sizeof( indices ), indices, GL_STATIC_DRAW );
+
+	glGenBuffers( 1, &tile_instances_vbo );
+	glBindBuffer( GL_ARRAY_BUFFER, tile_instances_vbo );
+	glVertexAttribPointer( 2, 2, GL_FLOAT, GL_FALSE, sizeof( tile_graphic_t ), 0 );
+	glEnableVertexAttribArray( 2 );
+	glVertexAttribDivisor( 2, 1 );
+	glVertexAttribPointer( 3, 2, GL_FLOAT, GL_FALSE, sizeof( tile_graphic_t ), ( void * )( sizeof( pair_t ) ) );
+	glEnableVertexAttribArray( 3 );
+	glVertexAttribDivisor( 3, 1 );
+    glBindBuffer( GL_ARRAY_BUFFER, 0 );
+
+	GLuint tile_u_texture_location = glGetUniformLocation( tile_program, "u_texture" );
+	glUniform1i( tile_u_texture_location, 0 );
+	GLuint tile_u_palette_texture_location = glGetUniformLocation( tile_program, "u_palette_texture" );
+	glUniform1i( tile_u_palette_texture_location, 1 );
+
+	tile_palette_index_location = glGetUniformLocation( tile_program, "u_palette_index" );
+
+	// Set up camera uniform.
+	tile_camera_location = glGetUniformLocation( tile_program, "u_camera" );
+	glUniform2f( tile_camera_location, 0.0f, 0.0f );
+}
+
 static void render_rects( const camera_t * camera )
 {
+	glEnable( GL_BLEND );
+	glDisable( GL_DEPTH_TEST );
+
 	glUseProgram( program );
 
 	// Update camera.
@@ -631,7 +818,7 @@ static void render_rects( const camera_t * camera )
 
 	// Update graphics data.
 	glBindBuffer( GL_ARRAY_BUFFER, instances_vbo );
-	glBufferData( GL_ARRAY_BUFFER, sizeof( graphic ) * graphics_count, graphics, GL_STATIC_DRAW );
+	glBufferData( GL_ARRAY_BUFFER, sizeof( graphic_t ) * graphics_count, graphics, GL_STATIC_DRAW );
 
 	// Draw graphics.
 	glBindVertexArray( vao );
@@ -640,20 +827,44 @@ static void render_rects( const camera_t * camera )
 
 static void render_sprites( const camera_t * camera )
 {
+	glDisable( GL_BLEND );
+	glEnable( GL_DEPTH_TEST );
+
 	glUseProgram( sprite_program );
 
 	// Update camera.
 	glUniform2f( sprite_camera_location, camera->x * 2.0f / WINDOW_WIDTH_PIXELS_F, camera->y * 2.0f / WINDOW_HEIGHT_PIXELS_F );
 
-	glUniform1f( sprite_palette_index_location, sprite_palette_index );
+	glUniform1f( sprite_palette_index_location, palette_index );
 
 	// Update graphics data.
 	glBindBuffer( GL_ARRAY_BUFFER, sprite_instances_vbo );
-	glBufferData( GL_ARRAY_BUFFER, sizeof( sprite ) * sprites_count, sprites, GL_STATIC_DRAW );
+	glBufferData( GL_ARRAY_BUFFER, sizeof( sprite_graphic_t ) * sprites_count, sprites, GL_STATIC_DRAW );
 
 	// Draw graphics.
 	glBindVertexArray( sprite_vao );
 	glDrawElementsInstanced( GL_TRIANGLES, 6, GL_UNSIGNED_INT, 0, sprites_count );
+}
+
+static void render_tiles( const camera_t * camera )
+{
+	glDisable( GL_BLEND );
+	glEnable( GL_DEPTH_TEST );
+
+	glUseProgram( tile_program );
+
+	// Update camera.
+	glUniform2f( tile_camera_location, camera->x * 2.0f / WINDOW_WIDTH_PIXELS_F, camera->y * 2.0f / WINDOW_HEIGHT_PIXELS_F );
+
+	glUniform1f( tile_palette_index_location, palette_index );
+
+	// Update graphics data.
+	glBindBuffer( GL_ARRAY_BUFFER, tile_instances_vbo );
+	glBufferData( GL_ARRAY_BUFFER, sizeof( tile_graphic_t ) * tiles_count, tiles, GL_STATIC_DRAW );
+
+	// Draw graphics.
+	glBindVertexArray( tile_vao );
+	glDrawElementsInstanced( GL_TRIANGLES, 6, GL_UNSIGNED_INT, 0, tiles_count );
 }
 
 static void update_screen()

@@ -12,7 +12,7 @@ typedef struct data_t
 data_t;
 
 unsigned int data_load();
-unsigned char * data_get_block_gfx_data();
+unsigned char * data_get_universal_block_gfx_data();
 size_t data_get_main_palette_count();
 unsigned char * data_get_main_palette_data();
 size_t data_get_overworld_palette_count();
