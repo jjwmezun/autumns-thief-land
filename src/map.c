@@ -1179,19 +1179,19 @@ map_t create_map()
 				);*/
 				engine_add_tile(
 					( pair_t ){ 16.0f * ( float )( x ), 16.0f * ( float )( y ) },
-					( pair_t ){ 448.0f, 16.0f }
+					( pair_t ){ 112.0f, 0.0f }
 				);
 				engine_add_tile(
 					( pair_t ){ 16.0f * ( float )( x ) + 8.0f, 16.0f * ( float )( y ) },
-					( pair_t ){ 456.0f, 16.0f }
+					( pair_t ){ 120.0f, 0.0f }
 				);
 				engine_add_tile(
 					( pair_t ){ 16.0f * ( float )( x ), 16.0f * ( float )( y ) + 8.0f },
-					( pair_t ){ 448.0f, 24.0f }
+					( pair_t ){ 128.0f, 0.0f }
 				);
 				engine_add_tile(
 					( pair_t ){ 16.0f * ( float )( x ) + 8.0f, 16.0f * ( float )( y ) + 8.0f },
-					( pair_t ){ 456.0f, 24.0f }
+					( pair_t ){ 136.0f, 0.0f }
 				);
 			}
 			else if ( tile.type == TILE_SLOPE )

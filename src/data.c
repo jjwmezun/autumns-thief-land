@@ -44,7 +44,7 @@ unsigned char * data_get_universal_block_gfx_data()
 	const size_t after_palette_pointers = 2
 		+ ( data_get_main_palette_count() * 4 )
 		+ ( data_get_overworld_palette_count() * 4 )
-		+ 8;
+		+ 20;
 	const uint32_t pointer = get_uint32_from_bytes( data.data, after_palette_pointers );
 	return data_get_gfx_data( pointer, 512, 64 );
 }
@@ -56,7 +56,7 @@ unsigned char * data_get_sprite_gfx_data()
 		+ ( data_get_overworld_palette_count() * 4 )
 		+ 16;
 	const uint32_t pointer = get_uint32_from_bytes( data.data, after_palette_pointers );
-	return data_get_gfx_data( pointer, 512, 512 );
+	return data_get_gfx_data( pointer, 512, 768 );
 }
 
 size_t data_get_main_palette_count()
