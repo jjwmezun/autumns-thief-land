@@ -11,8 +11,16 @@ typedef struct data_t
 }
 data_t;
 
+typedef struct gfx_data_t
+{
+	unsigned char * pixels;
+	size_t width;
+	size_t height;
+}
+gfx_data_t;
+
 unsigned int data_load();
-unsigned char * data_get_background_gfx_data( unsigned int n );
+gfx_data_t data_get_background_gfx_data( unsigned int n );
 unsigned char * data_get_universal_block_gfx_data();
 size_t data_get_main_palette_count();
 unsigned char * data_get_main_palette_data();

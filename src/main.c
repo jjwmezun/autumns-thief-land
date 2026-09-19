@@ -68,25 +68,17 @@ int main()
 	camera_t camera = { 0.0f, 0.0f, WINDOW_WIDTH_PIXELS_F, WINDOW_HEIGHT_PIXELS_F };
 
 	// Init BG.
-	unsigned char bgpixels[ 400 * 226 ];
-	memset( bgpixels, 0, 400 * 226 );
-	unsigned char * bg_gfx_data = data_get_background_gfx_data( 0 );
-	for ( size_t y = 0; y < 384; ++y )
+	gfx_data_t bg_gfx_data = data_get_background_gfx_data( 0 );
+	unsigned char bgpixels[ bg_gfx_data.width * bg_gfx_data.height ];
+	memset( bgpixels, 0, bg_gfx_data.width * bg_gfx_data.height );
+	for ( size_t y = 0; y < bg_gfx_data.height; ++y )
 	{
-		if ( y >= 226 )
+		for ( size_t x = 0; x < bg_gfx_data.width; ++x )
 		{
-			break;
-		}
-		for ( size_t x = 0; x < 512; ++x )
-		{
-			if ( x >= 400 )
-			{
-				break;
-			}
-			bgpixels[ y * 400 + x ] = bg_gfx_data[ y * 512 + x ] * 32;
+			bgpixels[ y * bg_gfx_data.width + x ] = bg_gfx_data.pixels[ y * bg_gfx_data.width + x ] * 32;
 		}
 	}
-	engine_change_bg_texture( bgpixels, 400, 226, map.width, map.height, 1.0f, 1.0f );
+	engine_change_bg_texture( bgpixels, bg_gfx_data.width, bg_gfx_data.height, map.width, map.height, 1.0f, 1.0f );
 
 	// Init other sprites.
 	sprite_t sprites[ SPRITE_COUNT ] = {

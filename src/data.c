@@ -39,7 +39,7 @@ unsigned int data_load()
 	return 0;
 }
 
-unsigned char * data_get_background_gfx_data( unsigned int n )
+gfx_data_t data_get_background_gfx_data( unsigned int n )
 {
 	const size_t toc_entry = 2
 		+ ( data_get_main_palette_count() * 4 )
@@ -47,7 +47,9 @@ unsigned char * data_get_background_gfx_data( unsigned int n )
 		+ 32;
 	const uint32_t bg_start_pointer = get_uint32_from_bytes( data.data, toc_entry );
 	const uint32_t bg_pointer = get_uint32_from_bytes( data.data, bg_start_pointer + 1 + n * 4 );
-	return data_get_gfx_data( bg_pointer, 512, 384 );
+	size_t width = data.data[ bg_pointer ] * 8;
+	size_t height = data.data[ bg_pointer + 1 ] * 8;
+	return ( gfx_data_t ){ data_get_gfx_data( bg_pointer + 2, width, height ), width, height };
 }
 
 unsigned char * data_get_universal_block_gfx_data()
