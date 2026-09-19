@@ -30,6 +30,7 @@ typedef uint_fast16_t tile_id_t;
 graphic_id_t engine_add_graphic( rect_t rect, color_t color );
 sprite_id_t engine_add_sprite( rect_t pos, rect_t texcoords );
 tile_id_t engine_add_tile( pair_t pos, pair_t texpos );
+void engine_change_bg_texture( const unsigned char * pixels, size_t width, size_t height, size_t map_width, size_t map_height, float scroll_x, float scroll_y );
 void engine_change_texture( const unsigned char * pixels );
 float engine_get_ticks();
 int engine_init( const char * title );

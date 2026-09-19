@@ -55,9 +55,11 @@ static float convert_graphic_h( rect_t rect, float h );
 static float convert_graphic_x( rect_t rect, float x );
 static float convert_graphic_y( rect_t rect, float y );
 static GLuint create_shader_program( const char * vertex_shader_src, const char * fragment_shader_src );
+static void init_bg_renderer();
 static void init_rect_renderer();
 static void init_sprite_renderer();
 static void init_tile_renderer();
+static void render_bg( const camera_t * camera );
 static void render_rects( const camera_t * camera );
 static void render_sprites( const camera_t * camera );
 static void render_tiles( const camera_t * camera );
@@ -94,6 +96,15 @@ static tile_data_t tiles_data[ MAX_TILES ];
 static tile_id_t tiles_count = 0;
 static GLuint tile_palette_index_location;
 static GLuint tile_camera_location;
+static GLuint bg_texture;
+static GLuint bg_program;
+static GLuint bg_vao;
+static GLuint bg_palette_index_location;
+static GLuint bg_camera_location;
+static GLuint bg_model_location;
+static GLuint bg_texmodel_location;
+static float bg_scroll_x = 0.0f;
+static float bg_scroll_y = 0.0f;
 static struct
 {
 	unsigned int up : 1;
@@ -166,6 +177,42 @@ tile_id_t engine_add_tile( pair_t pos, pair_t texpos )
 	return tiles_count++;
 }
 
+void engine_change_bg_texture( const unsigned char * pixels, size_t width, size_t height, size_t map_width, size_t map_height, float scroll_x, float scroll_y )
+{
+	glActiveTexture( GL_TEXTURE2 );
+	if ( bg_texture == 0 )
+	{
+		glGenTextures( 1, &bg_texture );
+	}
+	glBindTexture( GL_TEXTURE_2D, bg_texture );
+	glTexImage2D( GL_TEXTURE_2D, 0, GL_RED, width, height, 0, GL_RED, GL_UNSIGNED_BYTE, pixels );
+	glTexParameteri( GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST );
+	glTexParameteri( GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST );
+
+	glUseProgram( bg_program );
+
+	bg_scroll_x = scroll_x;
+	bg_scroll_y = scroll_y;
+	const float scale_x = ( float )( map_width * 16 ) * ( 1.0f + scroll_x ) / WINDOW_WIDTH_PIXELS_F;
+	const float scale_y = ( float )( map_height * 16 ) * ( 1.0f + scroll_y ) / WINDOW_HEIGHT_PIXELS_F;
+
+	const float model[ 9 ] =
+	{
+		scale_x, 0.0f, 0.0f,
+		0.0f, scale_y, 0.0f,
+		0.0f, 0.0f, 1.0f,
+	};
+	glUniformMatrix3fv( bg_model_location, 1, GL_FALSE, model );
+
+	const float texmodel[ 9 ] =
+	{
+		scale_x, 0.0f, 0.0f,
+		0.0f, scale_y, 0.0f,
+		0.0f, 0.0f, 1.0f,
+	};
+	glUniformMatrix3fv( bg_texmodel_location, 1, GL_FALSE, texmodel );
+}
+
 void engine_change_texture( const unsigned char * pixels )
 {
 	glActiveTexture( GL_TEXTURE0 );
@@ -210,6 +257,7 @@ int engine_init( const char * title )
 	glBlendFunc( GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA );
 
 	init_rect_renderer();
+	init_bg_renderer();
 	init_sprite_renderer();
 	init_tile_renderer();
 
@@ -301,6 +349,7 @@ void engine_render( const camera_t * camera )
 	glClear( GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT );
 
 	render_rects( camera );
+	render_bg( camera );
 	render_tiles( camera );
 	render_sprites( camera );
 
@@ -499,6 +548,111 @@ static GLuint create_shader_program( const char * vertex_shader_src, const char 
         printf( "Shader program linking failed! %s\n", log );
     }
 	return program;
+}
+
+static void init_bg_renderer()
+{
+	const char * vertex_shader_src = "#version 330\n"
+		"layout(location = 0) in vec2 i_position;\n"
+		"layout(location = 1) in vec2 i_texture_coords;\n"
+		"\n"
+		"uniform mat3 u_camera;\n"
+		"uniform mat3 u_model;\n"
+		"uniform mat3 u_texmodel;\n"
+		"\n"
+		"out vec2 o_texture_coords;\n"
+		"\n"
+		"void main()\n"
+		"{\n"
+		"	vec3 pos = vec3( i_position, 1.0 ) * u_model * u_camera;\n"
+		"	gl_Position = vec4( pos.xy, 0.0, 1.0 );\n"
+		"	vec3 tex = vec3( i_texture_coords, 1.0 ) * u_texmodel;\n"
+		"	o_texture_coords = tex.xy;\n"
+		"}\n";
+
+	const char * fragment_shader_src = "#version 330\n"
+		"\n"
+		"in vec2 o_texture_coords;\n"
+		"\n"
+		"uniform sampler2D u_texture;\n"
+		"uniform sampler2D u_palette_texture;\n"
+		"uniform float u_palette_index;\n"
+		"\n"
+		"void main()\n"
+		"{\n"
+		"	float color_index = texture( u_texture, o_texture_coords ).r;\n"
+		"	if ( color_index == 0.0f )\n"
+		"	{\n"
+		"		discard;\n"
+		"		return;\n"
+		"	}\n"
+		"	gl_FragColor = texture(\n"
+		"		u_palette_texture,\n"
+		"		vec2( color_index, u_palette_index )\n"
+		"	);\n"
+		"}\n";
+	
+	bg_program = create_shader_program( vertex_shader_src, fragment_shader_src );
+
+	glUseProgram( bg_program );
+
+	float vertices[] = {
+		-1.0f, -1.0f, 0.0f, 1.0f, // Lower left
+		1.0f, -1.0f, 1.0f, 1.0f,  // Lower right
+		1.0f, 1.0f, 1.0f, 0.0f,   // Upper right
+		-1.0f, 1.0f, 0.0f, 0.0f,  // Upper left
+	};
+
+	int indices[] = {
+		0, 1, 3,
+		1, 2, 3
+	};
+
+	glGenVertexArrays( 1, &bg_vao );
+	glBindVertexArray( bg_vao );
+	GLuint vbo;
+	glGenBuffers( 1, &vbo );
+	glBindBuffer( GL_ARRAY_BUFFER, vbo );
+	glBufferData( GL_ARRAY_BUFFER, sizeof( vertices ), vertices, GL_STATIC_DRAW );
+	glVertexAttribPointer( 0, 2, GL_FLOAT, GL_FALSE, 4 * sizeof( float ), 0 );
+	glEnableVertexAttribArray( 0 );
+	glVertexAttribPointer( 1, 2, GL_FLOAT, GL_FALSE, 4 * sizeof( float ), ( void * )( 2 * sizeof( float ) ) );
+	glEnableVertexAttribArray( 1 );
+	GLuint ebo;
+	glGenBuffers( 1, &ebo );
+	glBindBuffer( GL_ELEMENT_ARRAY_BUFFER, ebo );
+	glBufferData( GL_ELEMENT_ARRAY_BUFFER, sizeof( indices ), indices, GL_STATIC_DRAW );
+
+	GLuint bg_u_texture_location = glGetUniformLocation( bg_program, "u_texture" );
+	glUniform1i( bg_u_texture_location, 2 );
+	GLuint bg_u_palette_texture_location = glGetUniformLocation( bg_program, "u_palette_texture" );
+	glUniform1i( bg_u_palette_texture_location, 1 );
+
+	bg_palette_index_location = glGetUniformLocation( bg_program, "u_palette_index" );
+
+	// Set up camera uniform.
+	bg_camera_location = glGetUniformLocation( bg_program, "u_camera" );
+	glUniformMatrix3fv( bg_camera_location, 1, GL_FALSE, ( const GLfloat[] ){
+		1.0f, 0.0f, 0.0f,
+		0.0f, 1.0f, 0.0f,
+		0.0f, 0.0f, 1.0f
+	} );
+
+	// Set up model uniform.
+	bg_model_location = glGetUniformLocation( bg_program, "u_model" );
+	glUniformMatrix3fv( bg_model_location, 1, GL_FALSE, ( const GLfloat[] ){
+		1.0f, 0.0f, 0.0f,
+		0.0f, 1.0f, 0.0f,
+		0.0f, 0.0f, 1.0f
+	} );
+
+	// Set up texture model uniform.
+	bg_texmodel_location = glGetUniformLocation( bg_program, "u_texmodel" );
+	glUniformMatrix3fv( bg_texmodel_location, 1, GL_FALSE, ( const GLfloat[] ){
+		1.0f, 0.0f, 0.0f,
+		0.0f, 1.0f, 0.0f,
+		0.0f, 0.0f, 1.0f
+	} );
 }
 
 static void init_rect_renderer()
@@ -804,6 +958,27 @@ static void init_tile_renderer()
 	// Set up camera uniform.
 	tile_camera_location = glGetUniformLocation( tile_program, "u_camera" );
 	glUniform2f( tile_camera_location, 0.0f, 0.0f );
+}
+
+static void render_bg( const camera_t * camera )
+{
+	glEnable( GL_BLEND );
+	glDisable( GL_DEPTH_TEST );
+
+	glUseProgram( bg_program );
+
+	// Update camera.
+	const float camera_mat[ 9 ] =
+	{
+		1.0f, 0.0f, -( camera->x * 2.0f / WINDOW_WIDTH_PIXELS_F ) * bg_scroll_x,
+		0.0f, 1.0f, ( camera->y * 2.0f / WINDOW_HEIGHT_PIXELS_F ) * bg_scroll_y,
+		0.0f, 0.0f, 1.0f,
+	};
+	glUniformMatrix3fv( u_camera_location, 1, GL_FALSE, camera_mat );
+
+	// Draw graphics.
+	glBindVertexArray( bg_vao );
+	glDrawElements( GL_TRIANGLES, 6, GL_UNSIGNED_INT, 0 );
 }
 
 static void render_rects( const camera_t * camera )

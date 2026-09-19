@@ -39,6 +39,17 @@ unsigned int data_load()
 	return 0;
 }
 
+unsigned char * data_get_background_gfx_data( unsigned int n )
+{
+	const size_t toc_entry = 2
+		+ ( data_get_main_palette_count() * 4 )
+		+ ( data_get_overworld_palette_count() * 4 )
+		+ 32;
+	const uint32_t bg_start_pointer = get_uint32_from_bytes( data.data, toc_entry );
+	const uint32_t bg_pointer = get_uint32_from_bytes( data.data, bg_start_pointer + 1 + n * 4 );
+	return data_get_gfx_data( bg_pointer, 512, 384 );
+}
+
 unsigned char * data_get_universal_block_gfx_data()
 {
 	const size_t after_palette_pointers = 2
