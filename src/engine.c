@@ -1,5 +1,6 @@
 #include "config.h"
 #include "engine.h"
+#include "spotlight.h"
 #include <stdio.h>
 #include <SDL.h>
 #include <GL/glew.h>
@@ -56,11 +57,14 @@ static float convert_graphic_x( rect_t rect, float x );
 static float convert_graphic_y( rect_t rect, float y );
 static GLuint create_shader_program( const char * vertex_shader_src, const char * fragment_shader_src );
 static void init_bg_renderer();
+static void init_framebuffer();
 static void init_rect_renderer();
+static void init_spotlight();
 static void init_sprite_renderer();
 static void init_tile_renderer();
 static void render_bg( const camera_t * camera );
 static void render_rects( const camera_t * camera );
+static void render_spotlight();
 static void render_sprites( const camera_t * camera );
 static void render_tiles( const camera_t * camera );
 static void update_screen();
@@ -71,6 +75,11 @@ static unsigned int screen_width;
 static unsigned int screen_height;
 static graphic_id_t graphics_count = 2;
 static SDL_Window * window;
+static GLuint fbtexture;
+static GLuint fbo;
+static GLuint fbprogram;
+static GLuint fbvao;
+static GLuint fb_texture_location;
 static GLuint program;
 static GLuint vao;
 static GLuint instances_vbo;
@@ -103,6 +112,11 @@ static GLuint bg_palette_index_location;
 static GLuint bg_camera_location;
 static GLuint bg_model_location;
 static GLuint bg_texmodel_location;
+static GLuint spotlight_program;
+static GLuint spotlight_vao;
+static GLuint spotlight_texture;
+static GLuint spotlight_texture_index_location;
+static GLuint spotlight_fbtexture_index_location;
 static float bg_scroll_x = 0.0f;
 static float bg_scroll_y = 0.0f;
 static struct
@@ -260,6 +274,8 @@ int engine_init( const char * title )
 	init_bg_renderer();
 	init_sprite_renderer();
 	init_tile_renderer();
+	init_spotlight();
+	init_framebuffer();
 
 	// Don't draw back faces.
 	glCullFace( GL_BACK );
@@ -348,10 +364,36 @@ void engine_render( const camera_t * camera )
 	glClearColor( 0.0f, 0.0f, 0.0f, 1.0f );
 	glClear( GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT );
 
+	// Start rendering to framebuffer.
+	glBindFramebuffer( GL_FRAMEBUFFER, fbo );
+	glViewport( 0, 0, WINDOW_WIDTH_PIXELS * magnification, WINDOW_HEIGHT_PIXELS * magnification );
+
+	// Render elements to framebuffer.
 	render_rects( camera );
 	render_bg( camera );
 	render_tiles( camera );
 	render_sprites( camera );
+
+	// Stop rendering to framebuffer.
+	glBindFramebuffer( GL_FRAMEBUFFER, 0 );
+
+	if ( 1 )
+	{
+		// Render spotlight o’er framebuffer texture to main buffer.
+		render_spotlight();
+	}
+	else
+	{
+		// Render framebuffer to main buffer.
+		update_viewport();
+		glClearColor( 0.0f, 0.0f, 0.0f, 1.0f );
+		glClear( GL_COLOR_BUFFER_BIT );
+		glUseProgram( fbprogram );
+		glActiveTexture( GL_TEXTURE3 );
+		glBindTexture( GL_TEXTURE_2D, fbtexture );
+		glBindVertexArray( fbvao );
+		glDrawElements( GL_TRIANGLES, 6, GL_UNSIGNED_INT, 0 );
+	}
 
 	SDL_GL_SwapWindow( window );
 }
@@ -655,6 +697,82 @@ static void init_bg_renderer()
 	} );
 }
 
+static void init_framebuffer()
+{
+	// Init framebuffer.
+	const char * fb_vertex_shader =
+		"#version 330\n"
+		"layout(location = 0) in vec2 a_position;\n"
+		"layout(location = 1) in vec2 a_texcoord;\n"
+		"\n"
+		"out vec2 o_texcoord;\n"
+		"\n"
+		"void main()\n"
+		"{\n"
+		"	gl_Position = vec4( a_position, 0.0, 1.0 );\n"
+		"	o_texcoord = a_texcoord;\n"
+		"}\n";
+	const char * fb_fragment_shader =
+		"#version 330\n"
+		"\n"
+		"in vec2 o_texcoord;\n"
+		"\n"
+		"uniform sampler2D u_texture;\n"
+		"\n"
+		"void main()\n"
+		"{\n"
+		"	gl_FragColor = texture( u_texture, o_texcoord );\n"
+		"}\n";
+	fbprogram = create_shader_program( fb_vertex_shader, fb_fragment_shader );
+	glUseProgram( fbprogram );
+
+	float vertices[] = {
+		-1.0f, -1.0f, 0.0f, 0.0f, // Lower left
+		1.0f, -1.0f, 1.0f, 0.0f,  // Lower right
+		1.0f, 1.0f, 1.0f, 1.0f,   // Upper right
+		-1.0f, 1.0f, 0.0f, 1.0f,  // Upper left
+	};
+
+	int indices[] = {
+		0, 1, 3,
+		1, 2, 3
+	};
+
+	glGenVertexArrays( 1, &fbvao );
+	glBindVertexArray( fbvao );
+	GLuint vbo;
+	glGenBuffers( 1, &vbo );
+	glBindBuffer( GL_ARRAY_BUFFER, vbo );
+	glBufferData( GL_ARRAY_BUFFER, sizeof( vertices ), vertices, GL_STATIC_DRAW );
+	glVertexAttribPointer( 0, 2, GL_FLOAT, GL_FALSE, 4 * sizeof( float ), 0 );
+	glEnableVertexAttribArray( 0 );
+	glVertexAttribPointer( 1, 2, GL_FLOAT, GL_FALSE, 4 * sizeof( float ), ( void * )( 2 * sizeof( float ) ) );
+	glEnableVertexAttribArray( 1 );
+	GLuint ebo;
+	glGenBuffers( 1, &ebo );
+	glBindBuffer( GL_ELEMENT_ARRAY_BUFFER, ebo );
+	glBufferData( GL_ELEMENT_ARRAY_BUFFER, sizeof( indices ), indices, GL_STATIC_DRAW );
+
+	fb_texture_location = glGetUniformLocation( fbprogram, "u_texture" );
+	glUniform1i( fb_texture_location, 3 );
+
+	glGenFramebuffers( 1, &fbo );
+	glBindFramebuffer( GL_FRAMEBUFFER, fbo );
+	glGenTextures( 1, &fbtexture );
+	glActiveTexture( GL_TEXTURE3 );
+	glBindTexture( GL_TEXTURE_2D, fbtexture );
+	glTexImage2D( GL_TEXTURE_2D, 0, GL_RGBA, WINDOW_WIDTH_PIXELS * magnification, WINDOW_HEIGHT_PIXELS * magnification, 0, GL_RGBA, GL_UNSIGNED_BYTE, NULL );
+	glTexParameteri( GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST );
+	glTexParameteri( GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST );
+	glFramebufferTexture2D( GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, fbtexture, 0 );
+	if( glCheckFramebufferStatus( GL_FRAMEBUFFER ) != GL_FRAMEBUFFER_COMPLETE )
+	{
+		printf( "Error generating framebuffer.\n" );
+	}
+	glBindFramebuffer( GL_FRAMEBUFFER, 0 );
+	glUseProgram( 0 );
+}
+
 static void init_rect_renderer()
 {
 	const char * vertex_shader_src = "#version 330\n"
@@ -734,6 +852,81 @@ static void init_rect_renderer()
 	// Set up camera uniform.
 	u_camera_location = glGetUniformLocation( program, "u_camera" );
 	glUniform2f( u_camera_location, 0.0f, 0.0f );
+}
+
+static void init_spotlight()
+{
+	// Init framebuffer.
+	const char * fb_vertex_shader =
+		"#version 330\n"
+		"layout(location = 0) in vec2 a_position;\n"
+		"layout(location = 1) in vec2 a_texcoord;\n"
+		"\n"
+		"out vec2 o_texcoord;\n"
+		"\n"
+		"void main()\n"
+		"{\n"
+		"	gl_Position = vec4( a_position, 0.0, 1.0 );\n"
+		"	o_texcoord = a_texcoord;\n"
+		"}\n";
+	const char * fb_fragment_shader =
+		"#version 330\n"
+		"\n"
+		"in vec2 o_texcoord;\n"
+		"\n"
+		"uniform sampler2D u_texture;\n"
+		"uniform sampler2D u_fbtexture;\n"
+		"\n"
+		"void main()\n"
+		"{\n"
+		"	float lighting = texture( u_texture, o_texcoord ).r;\n"
+		"	gl_FragColor = texture( u_fbtexture, o_texcoord ) * vec4( lighting, lighting, lighting, 1.0 );\n"
+		"}\n";
+	spotlight_program = create_shader_program( fb_vertex_shader, fb_fragment_shader );
+	glUseProgram( spotlight_program );
+
+	float vertices[] = {
+		-1.0f, -1.0f, 0.0f, 0.0f, // Lower left
+		1.0f, -1.0f, 1.0f, 0.0f,  // Lower right
+		1.0f, 1.0f, 1.0f, 1.0f,   // Upper right
+		-1.0f, 1.0f, 0.0f, 1.0f,  // Upper left
+	};
+
+	int indices[] = {
+		0, 1, 3,
+		1, 2, 3
+	};
+
+	glGenVertexArrays( 1, &spotlight_vao );
+	glBindVertexArray( spotlight_vao );
+	GLuint vbo;
+	glGenBuffers( 1, &vbo );
+	glBindBuffer( GL_ARRAY_BUFFER, vbo );
+	glBufferData( GL_ARRAY_BUFFER, sizeof( vertices ), vertices, GL_STATIC_DRAW );
+	glVertexAttribPointer( 0, 2, GL_FLOAT, GL_FALSE, 4 * sizeof( float ), 0 );
+	glEnableVertexAttribArray( 0 );
+	glVertexAttribPointer( 1, 2, GL_FLOAT, GL_FALSE, 4 * sizeof( float ), ( void * )( 2 * sizeof( float ) ) );
+	glEnableVertexAttribArray( 1 );
+	GLuint ebo;
+	glGenBuffers( 1, &ebo );
+	glBindBuffer( GL_ELEMENT_ARRAY_BUFFER, ebo );
+	glBufferData( GL_ELEMENT_ARRAY_BUFFER, sizeof( indices ), indices, GL_STATIC_DRAW );
+
+	glActiveTexture( GL_TEXTURE4 );
+	if ( spotlight_texture == 0 )
+	{
+		glGenTextures( 1, &spotlight_texture );
+	}
+	glBindTexture( GL_TEXTURE_2D, spotlight_texture );
+	glTexImage2D( GL_TEXTURE_2D, 0, GL_RED, WINDOW_WIDTH_PIXELS, WINDOW_HEIGHT_PIXELS, 0, GL_RED, GL_UNSIGNED_BYTE, spotlight_pixels );
+	glTexParameteri( GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST );
+	glTexParameteri( GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST );
+
+	spotlight_texture_index_location = glGetUniformLocation( spotlight_program, "u_texture" );
+	glUniform1i( spotlight_texture_index_location, 4 );
+	spotlight_fbtexture_index_location = glGetUniformLocation( spotlight_program, "u_fbtexture" );
+	glUniform1i( spotlight_fbtexture_index_location, 3 );
+	glUseProgram( 0 );
 }
 
 static void init_sprite_renderer()
@@ -1000,6 +1193,18 @@ static void render_rects( const camera_t * camera )
 	glDrawElementsInstanced( GL_TRIANGLES, 6, GL_UNSIGNED_INT, 0, graphics_count );
 }
 
+static void render_spotlight()
+{
+	glDisable( GL_BLEND );
+	glDisable( GL_DEPTH_TEST );
+
+	glUseProgram( spotlight_program );
+
+	// Draw graphics.
+	glBindVertexArray( spotlight_vao );
+	glDrawElements( GL_TRIANGLES, 6, GL_UNSIGNED_INT, 0 );
+}
+
 static void render_sprites( const camera_t * camera )
 {
 	glDisable( GL_BLEND );
@@ -1062,6 +1267,11 @@ static void update_screen()
 	}
 
 	update_viewport();
+
+	// Update framebuffer texture size.
+	glActiveTexture( GL_TEXTURE3 );
+	glBindTexture( GL_TEXTURE_2D, fbtexture );
+	glTexImage2D( GL_TEXTURE_2D, 0, GL_RGBA, WINDOW_WIDTH_PIXELS * magnification, WINDOW_HEIGHT_PIXELS * magnification, 0, GL_RGBA, GL_UNSIGNED_BYTE, NULL );
 }
 
 static void update_viewport()
