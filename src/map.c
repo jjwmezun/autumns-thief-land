@@ -22,10 +22,12 @@ map_t create_map()
 	{
 		map.tiles[ ( map.height - 1 ) * map.width + x ] = create_solid_tile();
 		map.tiles[ ( map.height - 2 ) * map.width + x ] = create_solid_tile();
+		map.tiles[ ( map.height - 3 ) * map.width + x ] = create_solid_tile();
+		map.tiles[ ( map.height - 4 ) * map.width + x ] = create_solid_tile();
 	}
 
-	map.tiles[ ( map.height - 4 ) * map.width + 8 ] = create_solid_tile();
-	map.tiles[ ( map.height - 4 ) * map.width + 9 ] = create_solid_tile();
+	map.tiles[ ( map.height - 6 ) * map.width + 8 ] = create_solid_tile();
+	map.tiles[ ( map.height - 6 ) * map.width + 9 ] = create_solid_tile();
 
 	/*
 	// Create a simple map with solid blocks.
@@ -1172,26 +1174,29 @@ map_t create_map()
 			}
 			else if ( is_tile_solid( tile ) )
 			{
-				/*
-				engine_add_graphic(
-					( rect_t ){ 16.0f * ( float )( x ), 16.0f * ( float )( y ), 16.0f, 16.0f },
-					( color_t ){ 0.0f, 0.0f, 0.0f, 1.0f }
-				);*/
 				engine_add_tile(
-					( pair_t ){ 16.0f * ( float )( x ), 16.0f * ( float )( y ) },
-					( pair_t ){ 112.0f, 0.0f }
+					16.0f * ( float )( x ),
+					16.0f * ( float )( y ),
+					112.0f,
+					0.0f
 				);
 				engine_add_tile(
-					( pair_t ){ 16.0f * ( float )( x ) + 8.0f, 16.0f * ( float )( y ) },
-					( pair_t ){ 120.0f, 0.0f }
+					16.0f * ( float )( x ) + 8.0f,
+					16.0f * ( float )( y ),
+					120.0f,
+					0.0f
 				);
 				engine_add_tile(
-					( pair_t ){ 16.0f * ( float )( x ), 16.0f * ( float )( y ) + 8.0f },
-					( pair_t ){ 128.0f, 0.0f }
+					16.0f * ( float )( x ),
+					16.0f * ( float )( y ) + 8.0f,
+					128.0f,
+					0.0f
 				);
 				engine_add_tile(
-					( pair_t ){ 16.0f * ( float )( x ) + 8.0f, 16.0f * ( float )( y ) + 8.0f },
-					( pair_t ){ 136.0f, 0.0f }
+					16.0f * ( float )( x ) + 8.0f,
+					16.0f * ( float )( y ) + 8.0f,
+					136.0f,
+					0.0f
 				);
 			}
 			else if ( tile.type == TILE_SLOPE )

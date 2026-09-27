@@ -9,6 +9,14 @@
 #define MAX_GRAPHICS 10000
 #define MAX_SPRITES 10000
 #define MAX_TILES 10000
+#define INVENTORY_TILE_COUNT 62 * 4
+#define INVENTORY_SIZE sizeof( tile_graphic_t ) * INVENTORY_TILE_COUNT
+#define TILE_WIDTH 8.0f / WINDOW_WIDTH_PIXELS_F
+#define TILE_HEIGHT 8.0f / WINDOW_HEIGHT_PIXELS_F
+#define INVENTORY_X 8.0f
+#define INVENTORY_Y 248.0f
+#define INVENTORY_RIGHT ( WINDOW_WIDTH_PIXELS_F - 8.0f )
+#define INVENTORY_BOTTOM ( WINDOW_HEIGHT_PIXELS_F - 8.0f )
 
 typedef struct graphic_data_t
 {
@@ -52,17 +60,23 @@ typedef struct tile_graphic_t
 }
 tile_graphic_t;
 
-static float convert_graphic_h( rect_t rect, float h );
-static float convert_graphic_x( rect_t rect, float x );
-static float convert_graphic_y( rect_t rect, float y );
+static float convert_graphic_h( float h );
+static float convert_graphic_x( float w, float x );
+static float convert_graphic_y( float h, float y );
 static GLuint create_shader_program( const char * vertex_shader_src, const char * fragment_shader_src );
+static float get_tile_x( float x );
+static float get_tile_y( float y );
+static float get_tile_srcx( float srcx );
+static float get_tile_srcy( float srcy );
 static void init_bg_renderer();
 static void init_framebuffer();
+static void init_inventory();
 static void init_rect_renderer();
 static void init_spotlight();
 static void init_sprite_renderer();
 static void init_tile_renderer();
 static void render_bg( const camera_t * camera );
+static void render_inventory();
 static void render_rects( const camera_t * camera );
 static void render_spotlight();
 static void render_sprites( const camera_t * camera );
@@ -117,6 +131,7 @@ static GLuint spotlight_vao;
 static GLuint spotlight_texture;
 static GLuint spotlight_texture_index_location;
 static GLuint spotlight_fbtexture_index_location;
+static tile_graphic_t inventory_tiles[ INVENTORY_TILE_COUNT ];
 static float bg_scroll_x = 0.0f;
 static float bg_scroll_y = 0.0f;
 static struct
@@ -140,8 +155,8 @@ graphic_id_t engine_add_graphic( rect_t rect, color_t color )
 	graphics_data[ graphics_count ].abspos = rect;
 	rect.w /= WINDOW_WIDTH_PIXELS_F;
 	rect.h /= WINDOW_HEIGHT_PIXELS_F;
-	rect.x = convert_graphic_x( rect, rect.x );
-	rect.y = convert_graphic_y( rect, rect.y );
+	rect.x = convert_graphic_x( rect.w, rect.x );
+	rect.y = convert_graphic_y( rect.h, rect.y );
 	graphics[ graphics_count ].rect = rect;
 	graphics[ graphics_count ].color = color;
 	return graphics_count++;
@@ -159,8 +174,8 @@ sprite_id_t engine_add_sprite( rect_t pos, rect_t texcoords )
 	sprites_data[ sprites_count ].texcoords = texcoords;
 	pos.w /= WINDOW_WIDTH_PIXELS_F;
 	pos.h /= WINDOW_HEIGHT_PIXELS_F;
-	pos.x = convert_graphic_x( pos, pos.x );
-	pos.y = convert_graphic_y( pos, pos.y );
+	pos.x = convert_graphic_x( pos.w, pos.x );
+	pos.y = convert_graphic_y( pos.h, pos.y );
 	sprites[ sprites_count ].rect = pos;
 	texcoords.w /= 1024.0f;
 	texcoords.h /= 1024.0f;
@@ -171,7 +186,7 @@ sprite_id_t engine_add_sprite( rect_t pos, rect_t texcoords )
 	return sprites_count++;
 }
 
-tile_id_t engine_add_tile( pair_t pos, pair_t texpos )
+tile_id_t engine_add_tile( float x, float y, float srcx, float srcy )
 {
 	if ( tiles_count >= MAX_TILES )
 	{
@@ -179,15 +194,12 @@ tile_id_t engine_add_tile( pair_t pos, pair_t texpos )
 		return 1;
 	}
 
-	tiles_data[ tiles_count ].pos = pos;
-	tiles_data[ tiles_count ].texpos = texpos;
-	const rect_t posrect = { pos.x, pos.y, 8.0f / WINDOW_WIDTH_PIXELS_F, 8.0f / WINDOW_HEIGHT_PIXELS_F };
-	pos.x = convert_graphic_x( posrect, pos.x );
-	pos.y = convert_graphic_y( posrect, pos.y );
-	tiles[ tiles_count ].pos = pos;
-	texpos.x /= 1024.0f;
-	texpos.y /= 1024.0f;
-	tiles[ tiles_count ].texpos = texpos;
+	tiles_data[ tiles_count ].pos.x = x;
+	tiles_data[ tiles_count ].pos.y = y;
+	tiles[ tiles_count ].pos.x = get_tile_x( x );
+	tiles[ tiles_count ].pos.y = get_tile_y( y );
+	tiles[ tiles_count ].texpos.x = get_tile_srcx( srcx );
+	tiles[ tiles_count ].texpos.y = get_tile_srcy( srcy );
 	return tiles_count++;
 }
 
@@ -276,6 +288,7 @@ int engine_init( const char * title )
 	init_tile_renderer();
 	init_spotlight();
 	init_framebuffer();
+	init_inventory();
 
 	// Don't draw back faces.
 	glCullFace( GL_BACK );
@@ -395,6 +408,8 @@ void engine_render( const camera_t * camera )
 		glDrawElements( GL_TRIANGLES, 6, GL_UNSIGNED_INT, 0 );
 	}
 
+	render_inventory();
+
 	SDL_GL_SwapWindow( window );
 }
 
@@ -406,10 +421,10 @@ void engine_set_graphic_h( graphic_id_t graphic_id, float h )
 		return;
 	}
 	graphics_data[ graphic_id ].abspos.h = h;
-	graphics[ graphic_id ].rect.h = convert_graphic_h( graphics[ graphic_id ].rect, h );
+	graphics[ graphic_id ].rect.h = convert_graphic_h( h );
 	graphics[ graphic_id ].rect.y = convert_graphic_y
 	(
-		graphics[ graphic_id ].rect, graphics_data[ graphic_id ].abspos.y
+		graphics[ graphic_id ].rect.h, graphics_data[ graphic_id ].abspos.y
 	);
 }
 
@@ -421,7 +436,7 @@ void engine_set_graphic_x( graphic_id_t graphic_id, float x )
 		return;
 	}
 	graphics_data[ graphic_id ].abspos.x = x;
-	graphics[ graphic_id ].rect.x = convert_graphic_x( graphics[ graphic_id ].rect, x );
+	graphics[ graphic_id ].rect.x = convert_graphic_x( graphics[ graphic_id ].rect.w, x );
 }
 
 void engine_set_graphic_y( graphic_id_t graphic_id, float y )
@@ -432,7 +447,7 @@ void engine_set_graphic_y( graphic_id_t graphic_id, float y )
 		return;
 	}
 	graphics_data[ graphic_id ].abspos.y = y;
-	graphics[ graphic_id ].rect.y = convert_graphic_y( graphics[ graphic_id ].rect, y );
+	graphics[ graphic_id ].rect.y = convert_graphic_y( graphics[ graphic_id ].rect.h, y );
 }
 
 void engine_set_palette_index( float index )
@@ -488,10 +503,10 @@ void engine_set_sprite_h( sprite_id_t sprite_id, float h )
 		return;
 	}
 	sprites_data[ sprite_id ].pos.h = h;
-	sprites[ sprite_id ].rect.h = convert_graphic_h( sprites[ sprite_id ].rect, h );
+	sprites[ sprite_id ].rect.h = convert_graphic_h( h );
 	sprites[ sprite_id ].rect.y = convert_graphic_y
 	(
-		sprites[ sprite_id ].rect, sprites_data[ sprite_id ].pos.y
+		sprites[ sprite_id ].rect.h, sprites_data[ sprite_id ].pos.y
 	);
 }
 
@@ -503,7 +518,7 @@ void engine_set_sprite_x( sprite_id_t sprite_id, float x )
 		return;
 	}
 	sprites_data[ sprite_id ].pos.x = x;
-	sprites[ sprite_id ].rect.x = convert_graphic_x( sprites[ sprite_id ].rect, x );
+	sprites[ sprite_id ].rect.x = convert_graphic_x( sprites[ sprite_id ].rect.w, x );
 }
 
 void engine_set_sprite_y( sprite_id_t sprite_id, float y )
@@ -514,7 +529,7 @@ void engine_set_sprite_y( sprite_id_t sprite_id, float y )
 		return;
 	}
 	sprites_data[ sprite_id ].pos.y = y;
-	sprites[ sprite_id ].rect.y = convert_graphic_y( sprites[ sprite_id ].rect, y );
+	sprites[ sprite_id ].rect.y = convert_graphic_y( sprites[ sprite_id ].rect.h, y );
 }
 
 void engine_sleep( uint16_t ms )
@@ -552,19 +567,19 @@ unsigned int input_pressed_up()
 	return pressed.up;
 }
 
-static float convert_graphic_h( rect_t rect, float h )
+static float convert_graphic_h( float h )
 {
 	return h /= WINDOW_HEIGHT_PIXELS_F;
 }
 
-static float convert_graphic_x( rect_t rect, float x )
+static float convert_graphic_x( float w, float x )
 {
-	return ( ( x / WINDOW_WIDTH_PIXELS_F - 0.5f ) * 2.0f + rect.w );
+	return ( ( x / WINDOW_WIDTH_PIXELS_F - 0.5f ) * 2.0f + w );
 }
 
-static float convert_graphic_y( rect_t rect, float y )
+static float convert_graphic_y( float h, float y )
 {
-	return ( ( ( y / WINDOW_HEIGHT_PIXELS_F - 0.5f ) * 2.0f + rect.h ) * -1.0f );
+	return ( ( ( y / WINDOW_HEIGHT_PIXELS_F - 0.5f ) * 2.0f + h ) * -1.0f );
 }
 
 static GLuint create_shader_program( const char * vertex_shader_src, const char * fragment_shader_src )
@@ -590,6 +605,26 @@ static GLuint create_shader_program( const char * vertex_shader_src, const char 
         printf( "Shader program linking failed! %s\n", log );
     }
 	return program;
+}
+
+static float get_tile_x( float x )
+{
+	return convert_graphic_x( TILE_WIDTH, x );
+}
+
+static float get_tile_y( float y )
+{
+	return convert_graphic_y( TILE_HEIGHT, y );
+}
+
+static float get_tile_srcx( float srcx )
+{
+	return srcx / 1024.0f;
+}
+
+static float get_tile_srcy( float srcy )
+{
+	return srcy / 1024.0f;
 }
 
 static void init_bg_renderer()
@@ -771,6 +806,91 @@ static void init_framebuffer()
 	}
 	glBindFramebuffer( GL_FRAMEBUFFER, 0 );
 	glUseProgram( 0 );
+}
+
+static void init_inventory()
+{
+	// Inside box.
+	size_t i = 0;
+	for ( size_t y = INVENTORY_Y + 8.0f; y < INVENTORY_BOTTOM - 8.0f; y += 8.0f )
+	{
+		for ( size_t x = 16.0f; x < INVENTORY_RIGHT - 8.0f; x += 8.0f )
+		{
+			inventory_tiles[ i ].pos.x = get_tile_x( x );
+			inventory_tiles[ i ].pos.y = get_tile_y( y );
+			inventory_tiles[ i ].texpos.x = get_tile_srcx( 59.0f * 8.0f );
+			inventory_tiles[ i ].texpos.y = get_tile_srcy( 7.0f * 8.0f );
+			++i;
+		}
+	}
+
+	// Top left corner.
+	inventory_tiles[ i ].pos.x = get_tile_x( INVENTORY_X );
+	inventory_tiles[ i ].pos.y = get_tile_y( INVENTORY_Y );
+	inventory_tiles[ i ].texpos.x = get_tile_srcx( 55.0f * 8.0f );
+	inventory_tiles[ i ].texpos.y = get_tile_srcy( 7.0f * 8.0f );
+	++i;
+
+	// Top right corner.
+	inventory_tiles[ i ].pos.x = get_tile_x( INVENTORY_RIGHT - 8.0f );
+	inventory_tiles[ i ].pos.y = get_tile_y( INVENTORY_Y );
+	inventory_tiles[ i ].texpos.x = get_tile_srcx( 57.0f * 8.0f );
+	inventory_tiles[ i ].texpos.y = get_tile_srcy( 7.0f * 8.0f );
+	++i;
+
+	// Bottom left corner.
+	inventory_tiles[ i ].pos.x = get_tile_x( INVENTORY_X );
+	inventory_tiles[ i ].pos.y = get_tile_y( INVENTORY_BOTTOM - 8.0f );
+	inventory_tiles[ i ].texpos.x = get_tile_srcx( 61.0f * 8.0f );
+	inventory_tiles[ i ].texpos.y = get_tile_srcy( 7.0f * 8.0f );
+	++i;
+
+	// Bottom right corner.
+	inventory_tiles[ i ].pos.x = get_tile_x( INVENTORY_RIGHT - 8.0f );
+	inventory_tiles[ i ].pos.y = get_tile_y( INVENTORY_BOTTOM - 8.0f );
+	inventory_tiles[ i ].texpos.x = get_tile_srcx( 63.0f * 8.0f );
+	inventory_tiles[ i ].texpos.y = get_tile_srcy( 7.0f * 8.0f );
+	++i;
+
+	// Top edge tiles.
+	for ( size_t x = 16.0f; x < INVENTORY_RIGHT - 8.0f; x += 8.0f )
+	{
+		inventory_tiles[ i ].pos.x = get_tile_x( x );
+		inventory_tiles[ i ].pos.y = get_tile_y( INVENTORY_Y );
+		inventory_tiles[ i ].texpos.x = get_tile_srcx( 56.0f * 8.0f );
+		inventory_tiles[ i ].texpos.y = get_tile_srcy( 7.0f * 8.0f );
+		++i;
+	}
+
+	// Bottom edge tiles.
+	for ( size_t x = 16.0f; x < INVENTORY_RIGHT - 8.0f; x += 8.0f )
+	{
+		inventory_tiles[ i ].pos.x = get_tile_x( x );
+		inventory_tiles[ i ].pos.y = get_tile_y( INVENTORY_BOTTOM - 8.0f );
+		inventory_tiles[ i ].texpos.x = get_tile_srcx( 62.0f * 8.0f );
+		inventory_tiles[ i ].texpos.y = get_tile_srcy( 7.0f * 8.0f );
+		++i;
+	}
+
+	// Left edge tiles.
+	for ( size_t y = INVENTORY_Y + 8.0f; y < INVENTORY_BOTTOM - 8.0f; y += 8.0f )
+	{
+		inventory_tiles[ i ].pos.x = get_tile_x( INVENTORY_X );
+		inventory_tiles[ i ].pos.y = get_tile_y( y );
+		inventory_tiles[ i ].texpos.x = get_tile_srcx( 58.0f * 8.0f );
+		inventory_tiles[ i ].texpos.y = get_tile_srcy( 7.0f * 8.0f );
+		++i;
+	}
+
+	// Right edge tiles.
+	for ( size_t y = INVENTORY_Y + 8.0f; y < INVENTORY_BOTTOM - 8.0f; y += 8.0f )
+	{
+		inventory_tiles[ i ].pos.x = get_tile_x( INVENTORY_RIGHT - 8.0f );
+		inventory_tiles[ i ].pos.y = get_tile_y( y );
+		inventory_tiles[ i ].texpos.x = get_tile_srcx( 60.0f * 8.0f );
+		inventory_tiles[ i ].texpos.y = get_tile_srcy( 7.0f * 8.0f );
+		++i;
+	}
 }
 
 static void init_rect_renderer()
@@ -1172,6 +1292,26 @@ static void render_bg( const camera_t * camera )
 	// Draw graphics.
 	glBindVertexArray( bg_vao );
 	glDrawElements( GL_TRIANGLES, 6, GL_UNSIGNED_INT, 0 );
+}
+
+static void render_inventory()
+{
+	glDisable( GL_BLEND );
+	glEnable( GL_DEPTH_TEST );
+
+	glUseProgram( tile_program );
+
+	// Update uniforms.
+	glUniform2f( tile_camera_location, 0.0f, 0.0f );
+	glUniform1f( tile_palette_index_location, palette_index );
+
+	// Update graphics data.
+	glBindBuffer( GL_ARRAY_BUFFER, tile_instances_vbo );
+	glBufferData( GL_ARRAY_BUFFER, INVENTORY_SIZE, inventory_tiles, GL_STATIC_DRAW );
+
+	// Draw graphics.
+	glBindVertexArray( tile_vao );
+	glDrawElementsInstanced( GL_TRIANGLES, 6, GL_UNSIGNED_INT, 0, INVENTORY_TILE_COUNT );
 }
 
 static void render_rects( const camera_t * camera )
