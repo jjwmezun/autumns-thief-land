@@ -17,6 +17,7 @@ static float maxdt = 0.0f;
 static float palette_index = 0.0f;
 static float timecounts[ 1000 ] = { 0.0f };
 static size_t timecount_index = 0;
+static float zoom = 1.0f;
 
 int main()
 {
@@ -43,6 +44,14 @@ int main()
 		for ( size_t x = 0; x < 512; ++x )
 		{
 			pixels[ y * 1024 + x ] = block_gfx_data[ y * 512 + x ] * 32;
+		}
+	}
+	unsigned char * charset_gfx_data = data_get_charset_gfx_data();
+	for ( size_t y = 0; y < 576; ++y )
+	{
+		for ( size_t x = 0; x < 512; ++x )
+		{
+			pixels[ ( y + 64 ) * 1024 + x ] = charset_gfx_data[ y * 512 + x ] * 32;
 		}
 	}
 	unsigned char * sprite_gfx_data = data_get_sprite_gfx_data();
@@ -127,6 +136,21 @@ int main()
 
 		palette_index += 0.01f;
 		engine_set_palette_index( palette_index );
+
+		if ( input_pressed_up() )
+		{
+			zoom += 0.1f;
+			engine_set_blur_zoom( zoom );
+		}
+		else if ( input_pressed_down() )
+		{
+			zoom -= 0.1f;
+			if ( zoom < 1.0f )
+			{
+				zoom = 1.0f;
+			}
+			engine_set_blur_zoom( zoom );
+		}
 
 		engine_render( &camera );
 

@@ -52,6 +52,16 @@ gfx_data_t data_get_background_gfx_data( unsigned int n )
 	return ( gfx_data_t ){ data_get_gfx_data( bg_pointer + 2, width, height ), width, height };
 }
 
+unsigned char * data_get_charset_gfx_data()
+{
+	const size_t after_palette_pointers = 2
+		+ ( data_get_main_palette_count() * 4 )
+		+ ( data_get_overworld_palette_count() * 4 )
+		+ 8;
+	const uint32_t pointer = get_uint32_from_bytes( data.data, after_palette_pointers );
+	return data_get_gfx_data( pointer, 512, 576 );
+}
+
 unsigned char * data_get_universal_block_gfx_data()
 {
 	const size_t after_palette_pointers = 2

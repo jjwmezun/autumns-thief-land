@@ -9,7 +9,7 @@
 #define MAX_GRAPHICS 10000
 #define MAX_SPRITES 10000
 #define MAX_TILES 10000
-#define INVENTORY_TILE_COUNT 62 * 4
+#define INVENTORY_TILE_COUNT ( 62 * 4 + 10 )
 #define INVENTORY_SIZE sizeof( tile_graphic_t ) * INVENTORY_TILE_COUNT
 #define TILE_WIDTH 8.0f / WINDOW_WIDTH_PIXELS_F
 #define TILE_HEIGHT 8.0f / WINDOW_HEIGHT_PIXELS_F
@@ -17,6 +17,7 @@
 #define INVENTORY_Y 248.0f
 #define INVENTORY_RIGHT ( WINDOW_WIDTH_PIXELS_F - 8.0f )
 #define INVENTORY_BOTTOM ( WINDOW_HEIGHT_PIXELS_F - 8.0f )
+#define INVENTORY_PT_COUNT_START ( INVENTORY_X + 56.0f )
 
 typedef struct graphic_data_t
 {
@@ -69,7 +70,8 @@ static float get_tile_y( float y );
 static float get_tile_srcx( float srcx );
 static float get_tile_srcy( float srcy );
 static void init_bg_renderer();
-static void init_framebuffer();
+static void init_blur();
+static void init_framebuffers();
 static void init_inventory();
 static void init_rect_renderer();
 static void init_spotlight();
@@ -89,8 +91,8 @@ static unsigned int screen_width;
 static unsigned int screen_height;
 static graphic_id_t graphics_count = 2;
 static SDL_Window * window;
-static GLuint fbtexture;
-static GLuint fbo;
+static GLuint fbtextures[ 2 ];
+static GLuint fbo[ 2 ];
 static GLuint fbprogram;
 static GLuint fbvao;
 static GLuint fb_texture_location;
@@ -131,6 +133,10 @@ static GLuint spotlight_vao;
 static GLuint spotlight_texture;
 static GLuint spotlight_texture_index_location;
 static GLuint spotlight_fbtexture_index_location;
+static GLuint blur_program;
+static GLuint blurvao;
+static GLuint blur_texture_location;
+static GLuint blur_zoom_location;
 static tile_graphic_t inventory_tiles[ INVENTORY_TILE_COUNT ];
 static float bg_scroll_x = 0.0f;
 static float bg_scroll_y = 0.0f;
@@ -287,8 +293,9 @@ int engine_init( const char * title )
 	init_sprite_renderer();
 	init_tile_renderer();
 	init_spotlight();
-	init_framebuffer();
+	init_framebuffers();
 	init_inventory();
+	init_blur();
 
 	// Don't draw back faces.
 	glCullFace( GL_BACK );
@@ -378,7 +385,7 @@ void engine_render( const camera_t * camera )
 	glClear( GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT );
 
 	// Start rendering to framebuffer.
-	glBindFramebuffer( GL_FRAMEBUFFER, fbo );
+	glBindFramebuffer( GL_FRAMEBUFFER, fbo[ 0 ] );
 	glViewport( 0, 0, WINDOW_WIDTH_PIXELS * magnification, WINDOW_HEIGHT_PIXELS * magnification );
 
 	// Render elements to framebuffer.
@@ -387,8 +394,8 @@ void engine_render( const camera_t * camera )
 	render_tiles( camera );
 	render_sprites( camera );
 
-	// Stop rendering to framebuffer.
-	glBindFramebuffer( GL_FRAMEBUFFER, 0 );
+	// Start rendering 2nd framebuffer.
+	glBindFramebuffer( GL_FRAMEBUFFER, fbo[ 1 ] );
 
 	if ( 1 )
 	{
@@ -402,15 +409,37 @@ void engine_render( const camera_t * camera )
 		glClearColor( 0.0f, 0.0f, 0.0f, 1.0f );
 		glClear( GL_COLOR_BUFFER_BIT );
 		glUseProgram( fbprogram );
+		glUniform1i( fb_texture_location, 3 );
 		glActiveTexture( GL_TEXTURE3 );
-		glBindTexture( GL_TEXTURE_2D, fbtexture );
+		glBindTexture( GL_TEXTURE_2D, fbtextures[ 0 ] );
 		glBindVertexArray( fbvao );
 		glDrawElements( GL_TRIANGLES, 6, GL_UNSIGNED_INT, 0 );
 	}
 
 	render_inventory();
 
+	glBindFramebuffer( GL_FRAMEBUFFER, 0 );
+
+	/*
+	update_viewport();
+	glClearColor( 0.0f, 0.0f, 0.0f, 1.0f );
+	glClear( GL_COLOR_BUFFER_BIT );
+	glUseProgram( fbprogram );
+	glUniform1i( fb_texture_location, 4 );
+	glActiveTexture( GL_TEXTURE4 );
+	glBindTexture( GL_TEXTURE_2D, fbtextures[ 1 ] );
+	glBindVertexArray( fbvao );
+	glDrawElements( GL_TRIANGLES, 6, GL_UNSIGNED_INT, 0 );*/
+	glUseProgram( blur_program );
+	glBindVertexArray( blurvao );
+	glDrawElements( GL_TRIANGLES, 6, GL_UNSIGNED_INT, 0 );
+
 	SDL_GL_SwapWindow( window );
+}
+
+void engine_set_blur_zoom( float zoom )
+{
+	glUniform1f( blur_zoom_location, zoom );
 }
 
 void engine_set_graphic_h( graphic_id_t graphic_id, float h )
@@ -732,7 +761,74 @@ static void init_bg_renderer()
 	} );
 }
 
-static void init_framebuffer()
+static void init_blur()
+{
+	// Init framebuffer.
+	const char * vertex_shader =
+		"#version 330\n"
+		"layout(location = 0) in vec2 a_position;\n"
+		"layout(location = 1) in vec2 a_texcoord;\n"
+		"\n"
+		"out vec2 o_texcoord;\n"
+		"\n"
+		"void main()\n"
+		"{\n"
+		"	gl_Position = vec4( a_position, 0.0, 1.0 );\n"
+		"	o_texcoord = a_texcoord;\n"
+		"}\n";
+	const char * fragment_shader =
+		"#version 330\n"
+		"\n"
+		"in vec2 o_texcoord;\n"
+		"\n"
+		"uniform sampler2D u_texture;\n"
+		"uniform float u_zoom;\n"
+		"\n"
+		"void main()\n"
+		"{\n"
+		"	float cx = u_zoom == 1.0 ? o_texcoord.x : floor( o_texcoord.x * 512.0 / u_zoom ) / 512.0 * u_zoom;\n"
+		"	float cy = u_zoom == 1.0 ? o_texcoord.y : floor( o_texcoord.y * 288.0 / u_zoom ) / 288.0 * u_zoom;\n"
+		"	gl_FragColor = texture( u_texture, vec2( cx, cy ) ) + 0.1 * ( u_zoom - 1.0 );\n"
+		"}\n";
+	blur_program = create_shader_program( vertex_shader, fragment_shader );
+	glUseProgram( blur_program );
+
+	float vertices[] = {
+		-1.0f, -1.0f, 0.0f, 0.0f, // Lower left
+		1.0f, -1.0f, 1.0f, 0.0f,  // Lower right
+		1.0f, 1.0f, 1.0f, 1.0f,   // Upper right
+		-1.0f, 1.0f, 0.0f, 1.0f,  // Upper left
+	};
+
+	int indices[] = {
+		0, 1, 3,
+		1, 2, 3
+	};
+
+	glGenVertexArrays( 1, &blurvao );
+	glBindVertexArray( blurvao );
+	GLuint vbo;
+	glGenBuffers( 1, &vbo );
+	glBindBuffer( GL_ARRAY_BUFFER, vbo );
+	glBufferData( GL_ARRAY_BUFFER, sizeof( vertices ), vertices, GL_STATIC_DRAW );
+	glVertexAttribPointer( 0, 2, GL_FLOAT, GL_FALSE, 4 * sizeof( float ), 0 );
+	glEnableVertexAttribArray( 0 );
+	glVertexAttribPointer( 1, 2, GL_FLOAT, GL_FALSE, 4 * sizeof( float ), ( void * )( 2 * sizeof( float ) ) );
+	glEnableVertexAttribArray( 1 );
+	GLuint ebo;
+	glGenBuffers( 1, &ebo );
+	glBindBuffer( GL_ELEMENT_ARRAY_BUFFER, ebo );
+	glBufferData( GL_ELEMENT_ARRAY_BUFFER, sizeof( indices ), indices, GL_STATIC_DRAW );
+
+	blur_texture_location = glGetUniformLocation( blur_program, "u_texture" );
+	glUniform1i( blur_texture_location, 4 );
+	blur_zoom_location = glGetUniformLocation( blur_program, "u_zoom" );
+	glUniform1f( blur_zoom_location, 1.0f );
+
+	glUseProgram( 0 );
+}
+
+static void init_framebuffers()
 {
 	// Init framebuffer.
 	const char * fb_vertex_shader =
@@ -789,17 +885,27 @@ static void init_framebuffer()
 	glBufferData( GL_ELEMENT_ARRAY_BUFFER, sizeof( indices ), indices, GL_STATIC_DRAW );
 
 	fb_texture_location = glGetUniformLocation( fbprogram, "u_texture" );
-	glUniform1i( fb_texture_location, 3 );
 
-	glGenFramebuffers( 1, &fbo );
-	glBindFramebuffer( GL_FRAMEBUFFER, fbo );
-	glGenTextures( 1, &fbtexture );
+	glGenFramebuffers( 2, fbo );
+	glGenTextures( 2, fbtextures );
+	glBindFramebuffer( GL_FRAMEBUFFER, fbo[ 0 ] );
 	glActiveTexture( GL_TEXTURE3 );
-	glBindTexture( GL_TEXTURE_2D, fbtexture );
+	glBindTexture( GL_TEXTURE_2D, fbtextures[ 0 ] );
 	glTexImage2D( GL_TEXTURE_2D, 0, GL_RGBA, WINDOW_WIDTH_PIXELS * magnification, WINDOW_HEIGHT_PIXELS * magnification, 0, GL_RGBA, GL_UNSIGNED_BYTE, NULL );
 	glTexParameteri( GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST );
 	glTexParameteri( GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST );
-	glFramebufferTexture2D( GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, fbtexture, 0 );
+	glFramebufferTexture2D( GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, fbtextures[ 0 ], 0 );
+	if( glCheckFramebufferStatus( GL_FRAMEBUFFER ) != GL_FRAMEBUFFER_COMPLETE )
+	{
+		printf( "Error generating framebuffer.\n" );
+	}
+	glBindFramebuffer( GL_FRAMEBUFFER, fbo[ 1 ] );
+	glActiveTexture( GL_TEXTURE4 );
+	glBindTexture( GL_TEXTURE_2D, fbtextures[ 1 ] );
+	glTexImage2D( GL_TEXTURE_2D, 0, GL_RGBA, WINDOW_WIDTH_PIXELS * magnification, WINDOW_HEIGHT_PIXELS * magnification, 0, GL_RGBA, GL_UNSIGNED_BYTE, NULL );
+	glTexParameteri( GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST );
+	glTexParameteri( GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST );
+	glFramebufferTexture2D( GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, fbtextures[ 1 ], 0 );
 	if( glCheckFramebufferStatus( GL_FRAMEBUFFER ) != GL_FRAMEBUFFER_COMPLETE )
 	{
 		printf( "Error generating framebuffer.\n" );
@@ -810,11 +916,53 @@ static void init_framebuffer()
 
 static void init_inventory()
 {
-	// Inside box.
 	size_t i = 0;
+
+	// HP icon.
+	inventory_tiles[ i ].pos.x = get_tile_x( INVENTORY_X + 8.0f );
+	inventory_tiles[ i ].pos.y = get_tile_y( INVENTORY_Y + 8.0f );
+	inventory_tiles[ i ].texpos.x = get_tile_srcx( 54.0f * 8.0f );
+	inventory_tiles[ i ].texpos.y = get_tile_srcy( 7.0f * 8.0f );
+	++i;
+
+	// HP %
+	inventory_tiles[ i ].pos.x = get_tile_x( INVENTORY_X + 16.0f );
+	inventory_tiles[ i ].pos.y = get_tile_y( INVENTORY_Y + 8.0f );
+	inventory_tiles[ i ].texpos.x = get_tile_srcx( 7.0f * 8.0f );
+	inventory_tiles[ i ].texpos.y = get_tile_srcy( 8.0f * 8.0f );
+	++i;
+	inventory_tiles[ i ].pos.x = get_tile_x( INVENTORY_X + 24.0f );
+	inventory_tiles[ i ].pos.y = get_tile_y( INVENTORY_Y + 8.0f );
+	inventory_tiles[ i ].texpos.x = get_tile_srcx( 5.0f * 8.0f );
+	inventory_tiles[ i ].texpos.y = get_tile_srcy( 8.0f * 8.0f );
+	++i;
+	inventory_tiles[ i ].pos.x = get_tile_x( INVENTORY_X + 32.0f );
+	inventory_tiles[ i ].pos.y = get_tile_y( INVENTORY_Y + 8.0f );
+	inventory_tiles[ i ].texpos.x = get_tile_srcx( 43.0f * 8.0f );
+	inventory_tiles[ i ].texpos.y = get_tile_srcy( 8.0f * 8.0f );
+	++i;
+
+	// ₧ char.
+	inventory_tiles[ i ].pos.x = get_tile_x( INVENTORY_X + 48.0f );
+	inventory_tiles[ i ].pos.y = get_tile_y( INVENTORY_Y + 8.0f );
+	inventory_tiles[ i ].texpos.x = get_tile_srcx( 4.0f * 8.0f );
+	inventory_tiles[ i ].texpos.y = get_tile_srcy( 9.0f * 8.0f );
+	++i;
+
+	// ₧ count.
+	for ( size_t x = INVENTORY_PT_COUNT_START; x < INVENTORY_PT_COUNT_START + ( 5 * 8.0f ); x += 8.0f )
+	{
+		inventory_tiles[ i ].pos.x = get_tile_x( x );
+		inventory_tiles[ i ].pos.y = get_tile_y( INVENTORY_Y + 8.0f );
+		inventory_tiles[ i ].texpos.x = get_tile_srcx( 0.0f * 8.0f );
+		inventory_tiles[ i ].texpos.y = get_tile_srcy( 8.0f * 8.0f );
+		++i;
+	}
+
+	// Inside box.
 	for ( size_t y = INVENTORY_Y + 8.0f; y < INVENTORY_BOTTOM - 8.0f; y += 8.0f )
 	{
-		for ( size_t x = 16.0f; x < INVENTORY_RIGHT - 8.0f; x += 8.0f )
+		for ( size_t x = INVENTORY_X + 8.0f; x < INVENTORY_RIGHT - 8.0f; x += 8.0f )
 		{
 			inventory_tiles[ i ].pos.x = get_tile_x( x );
 			inventory_tiles[ i ].pos.y = get_tile_y( y );
@@ -853,7 +1001,7 @@ static void init_inventory()
 	++i;
 
 	// Top edge tiles.
-	for ( size_t x = 16.0f; x < INVENTORY_RIGHT - 8.0f; x += 8.0f )
+	for ( size_t x = INVENTORY_X + 8.0f; x < INVENTORY_RIGHT - 8.0f; x += 8.0f )
 	{
 		inventory_tiles[ i ].pos.x = get_tile_x( x );
 		inventory_tiles[ i ].pos.y = get_tile_y( INVENTORY_Y );
@@ -863,7 +1011,7 @@ static void init_inventory()
 	}
 
 	// Bottom edge tiles.
-	for ( size_t x = 16.0f; x < INVENTORY_RIGHT - 8.0f; x += 8.0f )
+	for ( size_t x = INVENTORY_X + 8.0f; x < INVENTORY_RIGHT - 8.0f; x += 8.0f )
 	{
 		inventory_tiles[ i ].pos.x = get_tile_x( x );
 		inventory_tiles[ i ].pos.y = get_tile_y( INVENTORY_BOTTOM - 8.0f );
@@ -891,6 +1039,8 @@ static void init_inventory()
 		inventory_tiles[ i ].texpos.y = get_tile_srcy( 7.0f * 8.0f );
 		++i;
 	}
+
+	printf( "Inventory tiles initialized: %zu, %u\n", i, INVENTORY_TILE_COUNT );
 }
 
 static void init_rect_renderer()
@@ -1032,7 +1182,7 @@ static void init_spotlight()
 	glBindBuffer( GL_ELEMENT_ARRAY_BUFFER, ebo );
 	glBufferData( GL_ELEMENT_ARRAY_BUFFER, sizeof( indices ), indices, GL_STATIC_DRAW );
 
-	glActiveTexture( GL_TEXTURE4 );
+	glActiveTexture( GL_TEXTURE5 );
 	if ( spotlight_texture == 0 )
 	{
 		glGenTextures( 1, &spotlight_texture );
@@ -1043,7 +1193,7 @@ static void init_spotlight()
 	glTexParameteri( GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST );
 
 	spotlight_texture_index_location = glGetUniformLocation( spotlight_program, "u_texture" );
-	glUniform1i( spotlight_texture_index_location, 4 );
+	glUniform1i( spotlight_texture_index_location, 5 );
 	spotlight_fbtexture_index_location = glGetUniformLocation( spotlight_program, "u_fbtexture" );
 	glUniform1i( spotlight_fbtexture_index_location, 3 );
 	glUseProgram( 0 );
@@ -1358,6 +1508,7 @@ static void render_sprites( const camera_t * camera )
 	glUniform1f( sprite_palette_index_location, palette_index );
 
 	// Update graphics data.
+	glActiveTexture( GL_TEXTURE0 );
 	glBindBuffer( GL_ARRAY_BUFFER, sprite_instances_vbo );
 	glBufferData( GL_ARRAY_BUFFER, sizeof( sprite_graphic_t ) * sprites_count, sprites, GL_STATIC_DRAW );
 
@@ -1379,6 +1530,7 @@ static void render_tiles( const camera_t * camera )
 	glUniform1f( tile_palette_index_location, palette_index );
 
 	// Update graphics data.
+	glActiveTexture( GL_TEXTURE0 );
 	glBindBuffer( GL_ARRAY_BUFFER, tile_instances_vbo );
 	glBufferData( GL_ARRAY_BUFFER, sizeof( tile_graphic_t ) * tiles_count, tiles, GL_STATIC_DRAW );
 
@@ -1410,7 +1562,10 @@ static void update_screen()
 
 	// Update framebuffer texture size.
 	glActiveTexture( GL_TEXTURE3 );
-	glBindTexture( GL_TEXTURE_2D, fbtexture );
+	glBindTexture( GL_TEXTURE_2D, fbtextures[ 0 ] );
+	glTexImage2D( GL_TEXTURE_2D, 0, GL_RGBA, WINDOW_WIDTH_PIXELS * magnification, WINDOW_HEIGHT_PIXELS * magnification, 0, GL_RGBA, GL_UNSIGNED_BYTE, NULL );
+	glActiveTexture( GL_TEXTURE4 );
+	glBindTexture( GL_TEXTURE_2D, fbtextures[ 1 ] );
 	glTexImage2D( GL_TEXTURE_2D, 0, GL_RGBA, WINDOW_WIDTH_PIXELS * magnification, WINDOW_HEIGHT_PIXELS * magnification, 0, GL_RGBA, GL_UNSIGNED_BYTE, NULL );
 }
 
