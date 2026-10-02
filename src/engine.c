@@ -7,7 +7,7 @@
 #include "spotlight.h"
 #include "util.h"
 
-#define MAX_GRAPHICS 10000
+#define MAX_RECTS 10000
 #define MAX_SPRITES 10000
 #define MAX_TILES 10000
 #define INVENTORY_TILE_COUNT ( 62 * 4 + 10 )
@@ -20,11 +20,11 @@
 #define INVENTORY_BOTTOM ( WINDOW_HEIGHT_PIXELS_F - 8.0f )
 #define INVENTORY_PT_COUNT_START ( INVENTORY_X + 56.0f )
 
-typedef struct graphic_data_t
+typedef struct rect_data_t
 {
 	rect_t abspos;
 }
-graphic_data_t;
+rect_data_t;
 
 typedef struct sprite_data_t
 {
@@ -48,13 +48,13 @@ typedef struct sprite_graphic_t
 }
 sprite_graphic_t;
 
-typedef struct graphic_t
+typedef struct rect_graphic_t
 {
 	rect_t rect;
-	color_t color;
+	float color_index;
+	float alpha;
 }
-graphic_t;
-
+rect_graphic_t;
 typedef struct tile_graphic_t
 {
 	pair_t pos;
@@ -90,19 +90,21 @@ static void update_viewport();
 static unsigned int magnification = 4;
 static unsigned int screen_width;
 static unsigned int screen_height;
-static graphic_id_t graphics_count = 2;
+static rect_gfx_id_t rects_count = 0;
 static SDL_Window * window;
 static GLuint fbtextures[ 2 ];
 static GLuint fbo[ 2 ];
 static GLuint fbprogram;
 static GLuint fbvao;
 static GLuint fb_texture_location;
-static GLuint program;
-static GLuint vao;
-static GLuint instances_vbo;
-static graphic_t graphics[ MAX_GRAPHICS ];
-static graphic_data_t graphics_data[ MAX_GRAPHICS ];
-static GLuint u_camera_location;
+static GLuint rect_program;
+static GLuint rect_vao;
+static GLuint rect_instances_vbo;
+static rect_graphic_t rects[ MAX_RECTS ];
+static rect_data_t rects_data[ MAX_RECTS ];
+static GLuint rect_camera_location;
+static GLuint rect_palette_index_location;
+static GLuint rect_palette_texture_location;
 static float palette_index = 0.0f;
 static GLuint main_texture;
 static GLuint palette_texture;
@@ -157,22 +159,23 @@ static struct
 	unsigned int run : 1;
 } pressed;
 
-graphic_id_t engine_add_graphic( rect_t rect, color_t color )
+rect_gfx_id_t engine_add_rect( rect_t rect, unsigned int color )
 {
-	if ( graphics_count >= MAX_GRAPHICS )
+	if ( rects_count >= MAX_RECTS )
 	{
-		fprintf( stderr, "Maximum number of graphics reached.\n" );
+		fprintf( stderr, "Maximum number of rects reached.\n" );
 		return 1;
 	}
 
-	graphics_data[ graphics_count ].abspos = rect;
+	rects_data[ rects_count ].abspos = rect;
 	rect.w /= WINDOW_WIDTH_PIXELS_F;
 	rect.h /= WINDOW_HEIGHT_PIXELS_F;
 	rect.x = convert_graphic_x( rect.w, rect.x );
 	rect.y = convert_graphic_y( rect.h, rect.y );
-	graphics[ graphics_count ].rect = rect;
-	graphics[ graphics_count ].color = color;
-	return graphics_count++;
+	rects[ rects_count ].rect = rect;
+	rects[ rects_count ].color_index = ( float )( color ) / 8.0f;
+	rects[ rects_count ].alpha = 0.5f;
+	return rects_count++;
 }
 
 sprite_id_t engine_add_sprite( rect_t pos, rect_t texcoords )
@@ -399,11 +402,15 @@ void engine_render( const camera_t * camera )
 	glBindFramebuffer( GL_FRAMEBUFFER, fbo[ 0 ] );
 	glViewport( 0, 0, WINDOW_WIDTH_PIXELS * magnification, WINDOW_HEIGHT_PIXELS * magnification );
 
+	// Clear the screen.
+	glClearColor( 1.0f, 1.0f, 1.0f, 1.0f );
+	glClear( GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT );
+
 	// Render elements to framebuffer.
-	render_rects( camera );
 	render_bg( camera );
 	render_tiles( camera );
 	render_sprites( camera );
+	render_rects( camera );
 
 	// Start rendering 2nd framebuffer.
 	glBindFramebuffer( GL_FRAMEBUFFER, fbo[ 1 ] );
@@ -453,43 +460,6 @@ void engine_set_blur_zoom( float zoom )
 	glUniform1f( blur_zoom_location, zoom );
 }
 
-void engine_set_graphic_h( graphic_id_t graphic_id, float h )
-{
-	if ( graphic_id >= graphics_count )
-	{
-		fprintf( stderr, "Invalid graphic ID: %lu\n", graphic_id );
-		return;
-	}
-	graphics_data[ graphic_id ].abspos.h = h;
-	graphics[ graphic_id ].rect.h = convert_graphic_h( h );
-	graphics[ graphic_id ].rect.y = convert_graphic_y
-	(
-		graphics[ graphic_id ].rect.h, graphics_data[ graphic_id ].abspos.y
-	);
-}
-
-void engine_set_graphic_x( graphic_id_t graphic_id, float x )
-{
-	if ( graphic_id >= graphics_count )
-	{
-		fprintf( stderr, "Invalid graphic ID: %lu\n", graphic_id );
-		return;
-	}
-	graphics_data[ graphic_id ].abspos.x = x;
-	graphics[ graphic_id ].rect.x = convert_graphic_x( graphics[ graphic_id ].rect.w, x );
-}
-
-void engine_set_graphic_y( graphic_id_t graphic_id, float y )
-{
-	if ( graphic_id >= graphics_count )
-	{
-		fprintf( stderr, "Invalid graphic ID: %lu\n", graphic_id );
-		return;
-	}
-	graphics_data[ graphic_id ].abspos.y = y;
-	graphics[ graphic_id ].rect.y = convert_graphic_y( graphics[ graphic_id ].rect.h, y );
-}
-
 void engine_set_palette_index( float index )
 {
 	palette_index = index;
@@ -506,6 +476,43 @@ void engine_set_palettes( unsigned char * colors, size_t palette_count )
 	glTexImage2D( GL_TEXTURE_2D, 0, GL_RGB5_A1, 8, palette_count, 0, GL_RGBA, GL_UNSIGNED_SHORT_5_5_5_1, colors );
 	glTexParameteri( GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST );
 	glTexParameteri( GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST );
+}
+
+void engine_set_rect_h( rect_gfx_id_t rect_id, float h )
+{
+	if ( rect_id >= rects_count )
+	{
+		fprintf( stderr, "Invalid rect ID: %lu\n", rect_id );
+		return;
+	}
+	rects_data[ rect_id ].abspos.h = h;
+	rects[ rect_id ].rect.h = convert_graphic_h( h );
+	rects[ rect_id ].rect.y = convert_graphic_y
+	(
+		rects[ rect_id ].rect.h, rects_data[ rect_id ].abspos.y
+	);
+}
+
+void engine_set_rect_x( rect_gfx_id_t rect_id, float x )
+{
+	if ( rect_id >= rects_count )
+	{
+		fprintf( stderr, "Invalid rect ID: %lu\n", rect_id );
+		return;
+	}
+	rects_data[ rect_id ].abspos.x = x;
+	rects[ rect_id ].rect.x = convert_graphic_x( rects[ rect_id ].rect.w, x );
+}
+
+void engine_set_rect_y( rect_gfx_id_t rect_id, float y )
+{
+	if ( rect_id >= rects_count )
+	{
+		fprintf( stderr, "Invalid rect ID: %lu\n", rect_id );
+		return;
+	}
+	rects_data[ rect_id ].abspos.y = y;
+	rects[ rect_id ].rect.y = convert_graphic_y( rects[ rect_id ].rect.h, y );
 }
 
 void engine_set_sprite_flip_x( sprite_id_t sprite_id, unsigned int flip_x )
@@ -1065,11 +1072,13 @@ static void init_rect_renderer()
 	const char * vertex_shader_src = "#version 330\n"
 		"layout(location = 0) in vec2 position;\n"
 		"layout(location = 1) in vec4 rect;\n"
-		"layout(location = 2) in vec4 color;\n"
+		"layout(location = 2) in float i_color_index;\n"
+		"layout(location = 3) in float i_alpha;\n"
 		"\n"
 		"uniform vec2 u_camera;\n"
 		"\n"
-		"out vec4 o_color;\n"
+		"out float o_color_index;\n"
+		"out float o_alpha;\n"
 		"\n"
 		"void main()\n"
 		"{\n"
@@ -1085,21 +1094,35 @@ static void init_rect_renderer()
 		"	);\n"
 		"	vec3 pos = vec3( position, 1.0 ) * model * cam;\n"
 		"	gl_Position = vec4( pos, 1.0 );\n"
-		"	o_color = color;\n"
+		"	o_color_index = i_color_index;\n"
+		"	o_alpha = i_alpha;\n"
 		"}\n";
 	
 	const char * fragment_shader_src = "#version 330\n"
 		"\n"
-		"in vec4 o_color;\n"
+		"in float o_color_index;\n"
+		"in float o_alpha;\n"
+		"\n"
+		"uniform sampler2D u_palette_texture;\n"
+		"uniform float u_palette_index;\n"
 		"\n"
 		"void main()\n"
 		"{\n"
-		"	gl_FragColor = o_color;\n"
+		"	if ( o_color_index == 0.0f )\n"
+		"	{\n"
+		"		discard;\n"
+		"		return;\n"
+		"	}\n"
+		"	vec3 color = texture(\n"
+		"		u_palette_texture,\n"
+		"		vec2( o_color_index, u_palette_index )\n"
+		"	).rgb;\n"
+		"	gl_FragColor = vec4( color, o_alpha );\n"
 		"}\n";
 	
-	program = create_shader_program( vertex_shader_src, fragment_shader_src );
+	rect_program = create_shader_program( vertex_shader_src, fragment_shader_src );
 
-	glUseProgram( program );
+	glUseProgram( rect_program );
 
 	float vertices[] = {
 		-1.0f, -1.0f, // Lower left
@@ -1113,8 +1136,8 @@ static void init_rect_renderer()
 		1, 2, 3
 	};
 
-	glGenVertexArrays( 1, &vao );
-	glBindVertexArray( vao );
+	glGenVertexArrays( 1, &rect_vao );
+	glBindVertexArray( rect_vao );
 	GLuint vbo;
 	glGenBuffers( 1, &vbo );
 	glBindBuffer( GL_ARRAY_BUFFER, vbo );
@@ -1126,19 +1149,25 @@ static void init_rect_renderer()
 	glBindBuffer( GL_ELEMENT_ARRAY_BUFFER, ebo );
 	glBufferData( GL_ELEMENT_ARRAY_BUFFER, sizeof( indices ), indices, GL_STATIC_DRAW );
 
-	glGenBuffers( 1, &instances_vbo );
-	glBindBuffer( GL_ARRAY_BUFFER, instances_vbo );
-	glVertexAttribPointer( 1, 4, GL_FLOAT, GL_FALSE, sizeof( graphic_t ), 0 );
+	glGenBuffers( 1, &rect_instances_vbo );
+	glBindBuffer( GL_ARRAY_BUFFER, rect_instances_vbo );
+	glVertexAttribPointer( 1, 4, GL_FLOAT, GL_FALSE, sizeof( rect_graphic_t ), 0 );
 	glEnableVertexAttribArray( 1 );
 	glVertexAttribDivisor( 1, 1 );
-	glVertexAttribPointer( 2, 4, GL_FLOAT, GL_FALSE, sizeof( graphic_t ), ( void * )( sizeof( rect_t ) ) );
+	glVertexAttribPointer( 2, 1, GL_FLOAT, GL_FALSE, sizeof( rect_graphic_t ), ( void * )( sizeof( rect_t ) ) );
 	glEnableVertexAttribArray( 2 );
 	glVertexAttribDivisor( 2, 1 );
+	glVertexAttribPointer( 3, 1, GL_FLOAT, GL_FALSE, sizeof( rect_graphic_t ), ( void * )( sizeof( rect_t ) + sizeof( float ) ) );
+	glEnableVertexAttribArray( 3 );
+	glVertexAttribDivisor( 3, 1 );
     glBindBuffer( GL_ARRAY_BUFFER, 0 );
 
-	// Set up camera uniform.
-	u_camera_location = glGetUniformLocation( program, "u_camera" );
-	glUniform2f( u_camera_location, 0.0f, 0.0f );
+	// Set up rect uniforms.
+	rect_camera_location = glGetUniformLocation( rect_program, "u_camera" );
+	glUniform2f( rect_camera_location, 0.0f, 0.0f );
+	GLuint rect_palette_texture_location = glGetUniformLocation( rect_program, "u_palette_texture" );
+	glUniform1i( rect_palette_texture_location, 1 );
+	rect_palette_index_location = glGetUniformLocation( rect_program, "u_palette_index" );
 }
 
 static void init_spotlight()
@@ -1454,7 +1483,7 @@ static void render_bg( const camera_t * camera )
 		0.0f, 1.0f, ( camera->y * 2.0f / WINDOW_HEIGHT_PIXELS_F ) * bg_scroll_y,
 		0.0f, 0.0f, 1.0f,
 	};
-	glUniformMatrix3fv( u_camera_location, 1, GL_FALSE, camera_mat );
+	glUniformMatrix3fv( bg_camera_location, 1, GL_FALSE, camera_mat );
 
 	const float bgw = bg_scale_x * WINDOW_WIDTH_PIXELS_F;
 	const float bgh = bg_scale_y * WINDOW_HEIGHT_PIXELS_F;
@@ -1511,18 +1540,21 @@ static void render_rects( const camera_t * camera )
 	glEnable( GL_BLEND );
 	glDisable( GL_DEPTH_TEST );
 
-	glUseProgram( program );
+	glUseProgram( rect_program );
 
 	// Update camera.
-	glUniform2f( u_camera_location, camera->x * 2.0f / WINDOW_WIDTH_PIXELS_F, camera->y * 2.0f / WINDOW_HEIGHT_PIXELS_F );
+	//glUniform2f( u_camera_location, camera->x * 2.0f / WINDOW_WIDTH_PIXELS_F, camera->y * 2.0f / WINDOW_HEIGHT_PIXELS_F );
+	glUniform2f( rect_camera_location, 0.0f, 0.0f );
+
+	glUniform1f( rect_palette_index_location, palette_index );
 
 	// Update graphics data.
-	glBindBuffer( GL_ARRAY_BUFFER, instances_vbo );
-	glBufferData( GL_ARRAY_BUFFER, sizeof( graphic_t ) * graphics_count, graphics, GL_STATIC_DRAW );
+	glBindBuffer( GL_ARRAY_BUFFER, rect_instances_vbo );
+	glBufferData( GL_ARRAY_BUFFER, sizeof( rect_graphic_t ) * rects_count, rects, GL_STATIC_DRAW );
 
 	// Draw graphics.
-	glBindVertexArray( vao );
-	glDrawElementsInstanced( GL_TRIANGLES, 6, GL_UNSIGNED_INT, 0, graphics_count );
+	glBindVertexArray( rect_vao );
+	glDrawElementsInstanced( GL_TRIANGLES, 6, GL_UNSIGNED_INT, 0, rects_count );
 }
 
 static void render_spotlight()

@@ -1159,12 +1159,6 @@ map_t create_map()
 		}
 	}*/
 
-	// Add BG.
-	engine_add_graphic(
-		( rect_t ){ 0.0f, 0.0f, ( float )( map.width * 16 ), ( float )( map.height * 16 ) },
-		( color_t ){ 1.0f, 1.0f, 1.0f, 1.0f }
-	);
-
 	// Add solid block graphics.
 	for ( size_t y = 0; y < map.height; ++y )
 	{
@@ -1173,10 +1167,6 @@ map_t create_map()
 			tile_t tile = map_get_tile( &map, x, y );
 			if ( is_tile_bouncy( tile ) )
 			{
-				engine_add_graphic(
-					( rect_t ){ 16.0f * ( float )( x ), 16.0f * ( float )( y ), 16.0f, 16.0f },
-					( color_t ){ 1.0f, 0.0f, 0.0f, 1.0f }
-				);
 			}
 			else if ( is_tile_solid( tile ) )
 			{
@@ -1207,45 +1197,9 @@ map_t create_map()
 			}
 			else if ( tile.type == TILE_SLOPE )
 			{
-				for ( size_t sx = 0; sx < 16; ++sx )
-				{
-					const float s = ( float )( get_tile_slope_colision( tile, sx ) );
-					if ( s >= 16.0f )
-					{
-						continue;
-					}
-					const float sh = 16.0f - s;
-					const float sy = is_tile_ceiling_slope( tile )
-						? ( float )( y * 16 )
-						: ( float )( y * 16 ) + ( 16.0f - sh );
-					engine_add_graphic(
-						( rect_t ){ 16.0f * ( float )( x ) + sx, sy, 1.0f, sh },
-						( color_t ){ 0.0f, 0.0f, 0.0f, 1.0f }
-					);
-				}
 			}
 			else if ( is_tile_climb_solid_top( tile ) )
 			{
-				engine_add_graphic(
-					( rect_t ){ 16.0f * ( float )( x ) + 2.0f, 16.0f * ( float )( y ), 4.0f, 16.0f },
-					( color_t ){ 0.0f, 0.0f, 0.0f, 1.0f }
-				);
-				engine_add_graphic(
-					( rect_t ){ 16.0f * ( float )( x ) + 10.0f, 16.0f * ( float )( y ), 4.0f, 16.0f },
-					( color_t ){ 0.0f, 0.0f, 0.0f, 1.0f }
-				);
-				engine_add_graphic(
-					( rect_t ){ 16.0f * ( float )( x ) + 2.0f, 16.0f * ( float )( y ) + 2.0f, 12.0f, 4.0f },
-					( color_t ){ 0.0f, 0.0f, 0.0f, 1.0f }
-				);
-				engine_add_graphic(
-					( rect_t ){ 16.0f * ( float )( x ) + 2.0f, 16.0f * ( float )( y ) + 10.0f, 12.0f, 4.0f },
-					( color_t ){ 0.0f, 0.0f, 0.0f, 1.0f }
-				);
-				engine_add_graphic(
-					( rect_t ){ 16.0f * ( float )( x ), 16.0f * ( float )( y ), 16.0f, 4.0f },
-					( color_t ){ 0.0f, 0.0f, 0.0f, 1.0f }
-				);
 			}
 			else if ( is_tile_climbable( tile ) )
 			{
@@ -1273,55 +1227,14 @@ map_t create_map()
 					11.0f * 8.0f,
 					0.0f
 				);
-				/*
-				engine_add_graphic(
-					( rect_t ){ 16.0f * ( float )( x ) + 2.0f, 16.0f * ( float )( y ), 4.0f, 16.0f },
-					( color_t ){ 0.0f, 0.0f, 0.0f, 1.0f }
-				);
-				engine_add_graphic(
-					( rect_t ){ 16.0f * ( float )( x ) + 10.0f, 16.0f * ( float )( y ), 4.0f, 16.0f },
-					( color_t ){ 0.0f, 0.0f, 0.0f, 1.0f }
-				);
-				engine_add_graphic(
-					( rect_t ){ 16.0f * ( float )( x ) + 2.0f, 16.0f * ( float )( y ) + 2.0f, 12.0f, 4.0f },
-					( color_t ){ 0.0f, 0.0f, 0.0f, 1.0f }
-				);
-				engine_add_graphic(
-					( rect_t ){ 16.0f * ( float )( x ) + 2.0f, 16.0f * ( float )( y ) + 10.0f, 12.0f, 4.0f },
-					( color_t ){ 0.0f, 0.0f, 0.0f, 1.0f }
-				);
-				*/
 			}
 			else if ( is_tile_solid_top( tile ) )
 			{
-				engine_add_graphic(
-					( rect_t ){ 16.0f * ( float )( x ), 16.0f * ( float )( y ), 16.0f, 4.0f },
-					( color_t ){ 0.0f, 0.0f, 0.0f, 1.0f }
-				);
 			}
 		}
 	}
 
 	return map;
-}
-
-void add_priority_map_graphics( const map_t * map )
-{
-	// Add solid block graphics.
-	for ( size_t y = 0; y < map->height; ++y )
-	{
-		for ( size_t x = 0; x < map->width; ++x )
-		{
-			const tile_t tile = map_get_tile( map, x, y );
-			if ( is_tile_underwater( tile ) )
-			{
-				engine_add_graphic(
-					( rect_t ){ 16.0f * ( float )( x ), 16.0f * ( float )( y ), 16.0f, 16.0f },
-					( color_t ){ 0.0f, 0.5f, 1.0f, 0.5f }
-				);
-			}
-		}
-	}
 }
 
 tile_t map_get_tile( const map_t * map, unsigned int x, unsigned int y )

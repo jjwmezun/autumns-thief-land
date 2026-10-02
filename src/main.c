@@ -10,6 +10,19 @@
 #include "tile.h"
 
 #define SPRITE_COUNT 1
+#define RAIN_COUNT ( WINDOW_WIDTH_PIXELS * 2 )
+
+#define RAIN_H() ( rand_range( 32.0f, 320.0f ) )
+#define RAIN_Y( h ) ( rand_range( -( h ) - 4.0f, -( h ) - 224.0f ) )
+#define RAIN_VY() ( rand_range( 0.2f, 4.0f ) )
+
+typedef struct raindrop_t
+{
+	rect_gfx_id_t gfx;
+	float y;
+	float h;
+	float vy;
+} raindrop_t;
 
 static unsigned int running = 1;
 static float prev_ticks = 0.0f;
@@ -20,6 +33,7 @@ static size_t timecount_index = 0;
 static float zoom = 1.0f;
 static float bgx = 0.0f;
 static float bgy = 0.0f;
+static raindrop_t rain[ RAIN_COUNT ];
 
 int main()
 {
@@ -102,21 +116,32 @@ int main()
 		//sprite_create( 13.0f, 15.0f, SPRITE_TYPE_CRAB )
 	};
 
-	add_priority_map_graphics( &map );
-
+	/*
 	// Add gridline graphics.
 	for ( size_t i = 0; i < map.width; ++i )
 	{
-		engine_add_graphic(
+		engine_add_rect(
 			( rect_t ){ 16.0f * ( float )( i ) - 0.5f, 0.0f, 1.0f, ( float )( map.height * 16 ) },
 			( color_t ){ 0.0f, 0.0f, 1.0f, 0.5f }
 		);
 	}
 	for ( size_t i = 0; i < map.height; ++i )
 	{
-		engine_add_graphic(
+		engine_add_rect(
 			( rect_t ){ 0.0f, 16.0f * ( float )( i ) - 0.5f, ( float )( map.width * 16 ), 1.0f },
 			( color_t ){ 0.0f, 0.0f, 1.0f, 0.5f }
+		);
+	}*/
+
+	for ( size_t i = 0; i < RAIN_COUNT; ++i )
+	{
+		rain[ i ].h = RAIN_H();
+		rain[ i ].y = rand_range( -rain[ i ].h - 32.0f, 224.0f );
+		rain[ i ].vy = RAIN_VY();
+		unsigned int x = ( unsigned int )( i ) % ( WINDOW_WIDTH_PIXELS / 2 );
+		rain[ i ].gfx = engine_add_rect(
+			( rect_t ){ ( float )( x * 2 ), rain[ i ].y, 1.0f, rain[ i ].h },
+			3
 		);
 	}
 
@@ -141,6 +166,19 @@ int main()
 		engine_set_palette_index( palette_index );
 
 		engine_update_bg_offset( -1.0f, -0.5f );
+
+		for ( size_t i = 0; i < RAIN_COUNT; ++i )
+		{
+			rain[ i ].y += rain[ i ].vy;
+			if ( rain[ i ].y > WINDOW_HEIGHT_PIXELS_F )
+			{
+				rain[ i ].h = RAIN_H();
+				rain[ i ].y = RAIN_Y( rain[ i ].h );
+				rain[ i ].vy = RAIN_VY();
+			}
+			engine_set_rect_y( rain[ i ].gfx, rain[ i ].y );
+			engine_set_rect_h( rain[ i ].gfx, rain[ i ].h );
+		}
 
 		/*
 		if ( input_pressed_up() )
