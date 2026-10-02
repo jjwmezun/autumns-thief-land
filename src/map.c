@@ -29,6 +29,12 @@ map_t create_map()
 	map.tiles[ ( map.height - 6 ) * map.width + 8 ] = create_solid_tile();
 	map.tiles[ ( map.height - 6 ) * map.width + 9 ] = create_solid_tile();
 
+	for ( size_t y = 1; y < map.height - 4; ++y )
+	{
+		const unsigned int l = y * map.width + 12;
+		map.tiles[ l ] = create_climb_tile();
+	}
+
 	/*
 	// Create a simple map with solid blocks.
 	for ( size_t y = 0; y < map.height; ++y )
@@ -1243,6 +1249,31 @@ map_t create_map()
 			}
 			else if ( is_tile_climbable( tile ) )
 			{
+				engine_add_tile(
+					16.0f * ( float )( x ),
+					16.0f * ( float )( y ),
+					10.0f * 8.0f,
+					0.0f
+				);
+				engine_add_tile(
+					16.0f * ( float )( x ) + 8.0f,
+					16.0f * ( float )( y ),
+					11.0f * 8.0f,
+					0.0f
+				);
+				engine_add_tile(
+					16.0f * ( float )( x ),
+					16.0f * ( float )( y ) + 8.0f,
+					10.0f * 8.0f,
+					0.0f
+				);
+				engine_add_tile(
+					16.0f * ( float )( x ) + 8.0f,
+					16.0f * ( float )( y ) + 8.0f,
+					11.0f * 8.0f,
+					0.0f
+				);
+				/*
 				engine_add_graphic(
 					( rect_t ){ 16.0f * ( float )( x ) + 2.0f, 16.0f * ( float )( y ), 4.0f, 16.0f },
 					( color_t ){ 0.0f, 0.0f, 0.0f, 1.0f }
@@ -1259,6 +1290,7 @@ map_t create_map()
 					( rect_t ){ 16.0f * ( float )( x ) + 2.0f, 16.0f * ( float )( y ) + 10.0f, 12.0f, 4.0f },
 					( color_t ){ 0.0f, 0.0f, 0.0f, 1.0f }
 				);
+				*/
 			}
 			else if ( is_tile_solid_top( tile ) )
 			{

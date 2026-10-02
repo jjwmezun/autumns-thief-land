@@ -18,6 +18,8 @@ static float palette_index = 0.0f;
 static float timecounts[ 1000 ] = { 0.0f };
 static size_t timecount_index = 0;
 static float zoom = 1.0f;
+static float bgx = 0.0f;
+static float bgy = 0.0f;
 
 int main()
 {
@@ -77,7 +79,8 @@ int main()
 	camera_t camera = { 0.0f, 0.0f, WINDOW_WIDTH_PIXELS_F, WINDOW_HEIGHT_PIXELS_F };
 
 	// Init BG.
-	gfx_data_t bg_gfx_data = data_get_background_gfx_data( 0 );
+	gfx_data_t bg_gfx_data = data_get_background_gfx_data( 1 );
+	printf( "Background gfx data: width=%zu, height=%zu\n", bg_gfx_data.width, bg_gfx_data.height );
 	unsigned char bgpixels[ bg_gfx_data.width * bg_gfx_data.height ];
 	memset( bgpixels, 0, bg_gfx_data.width * bg_gfx_data.height );
 	for ( size_t y = 0; y < bg_gfx_data.height; ++y )
@@ -137,6 +140,9 @@ int main()
 		palette_index += 0.01f;
 		engine_set_palette_index( palette_index );
 
+		engine_update_bg_offset( -1.0f, -0.5f );
+
+		/*
 		if ( input_pressed_up() )
 		{
 			zoom += 0.1f;
@@ -151,6 +157,7 @@ int main()
 			}
 			engine_set_blur_zoom( zoom );
 		}
+		*/
 
 		engine_render( &camera );
 

@@ -1,10 +1,11 @@
 #include "config.h"
 #include "engine.h"
-#include "spotlight.h"
-#include <stdio.h>
-#include <SDL.h>
 #include <GL/glew.h>
+#include <SDL.h>
 #include <SDL_opengl.h>
+#include <stdio.h>
+#include "spotlight.h"
+#include "util.h"
 
 #define MAX_GRAPHICS 10000
 #define MAX_SPRITES 10000
@@ -140,6 +141,12 @@ static GLuint blur_zoom_location;
 static tile_graphic_t inventory_tiles[ INVENTORY_TILE_COUNT ];
 static float bg_scroll_x = 0.0f;
 static float bg_scroll_y = 0.0f;
+static float bg_texture_width = 0.0f;
+static float bg_texture_height = 0.0f;
+static float bg_scale_x = 0.0f;
+static float bg_scale_y = 0.0f;
+static float bg_offset_x = -1000.0f;
+static float bg_offset_y = -32.0f;
 static struct
 {
 	unsigned int up : 1;
@@ -225,21 +232,25 @@ void engine_change_bg_texture( const unsigned char * pixels, size_t width, size_
 
 	bg_scroll_x = scroll_x;
 	bg_scroll_y = scroll_y;
-	const float scale_x = ( float )( map_width * 16 ) * ( 1.0f + scroll_x ) / WINDOW_WIDTH_PIXELS_F;
-	const float scale_y = ( float )( map_height * 16 ) * ( 1.0f + scroll_y ) / WINDOW_HEIGHT_PIXELS_F;
-
-	const float model[ 9 ] =
-	{
-		scale_x, 0.0f, 0.0f,
-		0.0f, scale_y, 0.0f,
-		0.0f, 0.0f, 1.0f,
-	};
-	glUniformMatrix3fv( bg_model_location, 1, GL_FALSE, model );
+	bg_texture_width = ( float )( width );
+	bg_texture_height = ( float )( height );
+	const float map_width_pixels = ( float )( map_width * 16 );
+	const float map_height_pixels = ( float )( map_height * 16 );
+	const float xmulti = MAX( map_width_pixels, WINDOW_WIDTH_PIXELS_F );
+	const float ymulti = MAX( map_height_pixels, WINDOW_HEIGHT_PIXELS_F );
+	const float xmulti2 = xmulti / WINDOW_WIDTH_PIXELS_F;
+	const float ymulti2 = ymulti / WINDOW_HEIGHT_PIXELS_F;
+	const float xmulti3 = 1.0f + xmulti2 * bg_scroll_x;
+	const float ymulti3 = 1.0f + ymulti2 * bg_scroll_y;
+	bg_scale_x = xmulti3 * 2.0f;
+	bg_scale_y = ymulti3 * 2.0f;
+	const float texscalex = WINDOW_WIDTH_PIXELS_F / bg_texture_width * bg_scale_x;
+	const float texscaley = WINDOW_HEIGHT_PIXELS_F / bg_texture_height * bg_scale_y;
 
 	const float texmodel[ 9 ] =
 	{
-		scale_x, 0.0f, 0.0f,
-		0.0f, scale_y, 0.0f,
+		texscalex, 0.0f, 0.0f,
+		0.0f, texscaley, 0.0f,
 		0.0f, 0.0f, 1.0f,
 	};
 	glUniformMatrix3fv( bg_texmodel_location, 1, GL_FALSE, texmodel );
@@ -564,6 +575,12 @@ void engine_set_sprite_y( sprite_id_t sprite_id, float y )
 void engine_sleep( uint16_t ms )
 {
 	SDL_Delay( ms );
+}
+
+void engine_update_bg_offset( float x, float y )
+{
+	bg_offset_x = fmod( bg_offset_x + x, bg_texture_width );
+	bg_offset_y = fmod( bg_offset_y + y, bg_texture_height );
 }
 
 unsigned int input_pressed_down()
@@ -1438,6 +1455,31 @@ static void render_bg( const camera_t * camera )
 		0.0f, 0.0f, 1.0f,
 	};
 	glUniformMatrix3fv( u_camera_location, 1, GL_FALSE, camera_mat );
+
+	const float bgw = bg_scale_x * WINDOW_WIDTH_PIXELS_F;
+	const float bgh = bg_scale_y * WINDOW_HEIGHT_PIXELS_F;
+	const float xoffset = bg_offset_x > 0.0f
+		? -bg_texture_width + bg_offset_x
+		: bg_offset_x;
+	const float yoffset = bg_offset_y > 0.0f
+		? -bg_texture_height + bg_offset_y
+		: bg_offset_y;
+	const float bgcenterx = bgw / 2.0f + xoffset;
+	const float bgcentery = bgh / 2.0f + yoffset;
+	const float screencenterx = WINDOW_WIDTH_PIXELS_F / 2.0f;
+	const float screencentery = WINDOW_HEIGHT_PIXELS_F / 2.0f;
+	const float bgoffsetx = bgcenterx - screencenterx;
+	const float bgoffsety = bgcentery - screencentery;
+	const float xpos = bgoffsetx / WINDOW_WIDTH_PIXELS_F * 2.0f;
+	const float ypos = bgoffsety / WINDOW_HEIGHT_PIXELS_F * 2.0f;
+
+	const float model[ 9 ] =
+	{
+		bg_scale_x, 0.0f, xpos,
+		0.0f, bg_scale_y, -ypos,
+		0.0f, 0.0f, 1.0f,
+	};
+	glUniformMatrix3fv( bg_model_location, 1, GL_FALSE, model );
 
 	// Draw graphics.
 	glBindVertexArray( bg_vao );

@@ -49,6 +49,7 @@ void engine_set_sprite_h( sprite_id_t sprite_id, float h );
 void engine_set_sprite_x( sprite_id_t sprite_id, float x );
 void engine_set_sprite_y( sprite_id_t sprite_id, float y );
 void engine_sleep( uint16_t ms );
+void engine_update_bg_offset( float x, float y );
 unsigned int input_pressed_down();
 unsigned int input_pressed_jump();
 unsigned int input_pressed_left();
