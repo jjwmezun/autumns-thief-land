@@ -1,4 +1,5 @@
 #include "config.h"
+#include "dir.h"
 #include "engine.h"
 #include <GL/glew.h>
 #include <SDL.h>
@@ -70,7 +71,8 @@ static float get_tile_x( float x );
 static float get_tile_y( float y );
 static float get_tile_srcx( float srcx );
 static float get_tile_srcy( float srcy );
-static void init_bg_renderer();
+static void init_bg_color_renderer();
+static void init_bg_layer_renderer();
 static void init_blur();
 static void init_framebuffers();
 static void init_inventory();
@@ -78,7 +80,8 @@ static void init_rect_renderer();
 static void init_spotlight();
 static void init_sprite_renderer();
 static void init_tile_renderer();
-static void render_bg( const camera_t * camera );
+static void render_bg_color();
+static void render_bg_layer( const camera_t * camera );
 static void render_inventory();
 static void render_rects( const camera_t * camera );
 static void render_spotlight();
@@ -97,6 +100,9 @@ static GLuint fbo[ 2 ];
 static GLuint fbprogram;
 static GLuint fbvao;
 static GLuint fb_texture_location;
+static GLuint bg_color_program;
+static GLuint bg_color_vao;
+static GLuint bg_color_vbo;
 static GLuint rect_program;
 static GLuint rect_vao;
 static GLuint rect_instances_vbo;
@@ -124,13 +130,13 @@ static tile_data_t tiles_data[ MAX_TILES ];
 static tile_id_t tiles_count = 0;
 static GLuint tile_palette_index_location;
 static GLuint tile_camera_location;
-static GLuint bg_texture;
-static GLuint bg_program;
-static GLuint bg_vao;
-static GLuint bg_palette_index_location;
-static GLuint bg_camera_location;
-static GLuint bg_model_location;
-static GLuint bg_texmodel_location;
+static GLuint bg_layer_texture;
+static GLuint bg_layer_program;
+static GLuint bg_layer_vao;
+static GLuint bg_layer_palette_index_location;
+static GLuint bg_layer_camera_location;
+static GLuint bg_layer_model_location;
+static GLuint bg_layer_texmodel_location;
 static GLuint spotlight_program;
 static GLuint spotlight_vao;
 static GLuint spotlight_texture;
@@ -141,14 +147,15 @@ static GLuint blurvao;
 static GLuint blur_texture_location;
 static GLuint blur_zoom_location;
 static tile_graphic_t inventory_tiles[ INVENTORY_TILE_COUNT ];
-static float bg_scroll_x = 0.0f;
-static float bg_scroll_y = 0.0f;
-static float bg_texture_width = 0.0f;
-static float bg_texture_height = 0.0f;
-static float bg_scale_x = 0.0f;
-static float bg_scale_y = 0.0f;
-static float bg_offset_x = -1000.0f;
-static float bg_offset_y = -32.0f;
+static float palette_count = 0.0f;
+static float bg_layer_scroll_x = 0.0f;
+static float bg_layer_scroll_y = 0.0f;
+static float bg_layer_texture_width = 0.0f;
+static float bg_layer_texture_height = 0.0f;
+static float bg_layer_scale_x = 0.0f;
+static float bg_layer_scale_y = 0.0f;
+static float bg_layer_offset_x = -1000.0f;
+static float bg_layer_offset_y = -32.0f;
 static struct
 {
 	unsigned int up : 1;
@@ -219,36 +226,45 @@ tile_id_t engine_add_tile( float x, float y, float srcx, float srcy )
 	return tiles_count++;
 }
 
-void engine_change_bg_texture( const unsigned char * pixels, size_t width, size_t height, size_t map_width, size_t map_height, float scroll_x, float scroll_y )
+void engine_change_bg_layer_texture
+(
+	const unsigned char * pixels,
+	size_t width,
+	size_t height,
+	size_t map_width,
+	size_t map_height,
+	float scroll_x,
+	float scroll_y
+)
 {
 	glActiveTexture( GL_TEXTURE2 );
-	if ( bg_texture == 0 )
+	if ( bg_layer_texture == 0 )
 	{
-		glGenTextures( 1, &bg_texture );
+		glGenTextures( 1, &bg_layer_texture );
 	}
-	glBindTexture( GL_TEXTURE_2D, bg_texture );
+	glBindTexture( GL_TEXTURE_2D, bg_layer_texture );
 	glTexImage2D( GL_TEXTURE_2D, 0, GL_RED, width, height, 0, GL_RED, GL_UNSIGNED_BYTE, pixels );
 	glTexParameteri( GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST );
 	glTexParameteri( GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST );
 
-	glUseProgram( bg_program );
+	glUseProgram( bg_layer_program );
 
-	bg_scroll_x = scroll_x;
-	bg_scroll_y = scroll_y;
-	bg_texture_width = ( float )( width );
-	bg_texture_height = ( float )( height );
+	bg_layer_scroll_x = scroll_x;
+	bg_layer_scroll_y = scroll_y;
+	bg_layer_texture_width = ( float )( width );
+	bg_layer_texture_height = ( float )( height );
 	const float map_width_pixels = ( float )( map_width * 16 );
 	const float map_height_pixels = ( float )( map_height * 16 );
 	const float xmulti = MAX( map_width_pixels, WINDOW_WIDTH_PIXELS_F );
 	const float ymulti = MAX( map_height_pixels, WINDOW_HEIGHT_PIXELS_F );
 	const float xmulti2 = xmulti / WINDOW_WIDTH_PIXELS_F;
 	const float ymulti2 = ymulti / WINDOW_HEIGHT_PIXELS_F;
-	const float xmulti3 = 1.0f + xmulti2 * bg_scroll_x;
-	const float ymulti3 = 1.0f + ymulti2 * bg_scroll_y;
-	bg_scale_x = xmulti3 * 2.0f;
-	bg_scale_y = ymulti3 * 2.0f;
-	const float texscalex = WINDOW_WIDTH_PIXELS_F / bg_texture_width * bg_scale_x;
-	const float texscaley = WINDOW_HEIGHT_PIXELS_F / bg_texture_height * bg_scale_y;
+	const float xmulti3 = 1.0f + xmulti2 * bg_layer_scroll_x;
+	const float ymulti3 = 1.0f + ymulti2 * bg_layer_scroll_y;
+	bg_layer_scale_x = xmulti3 * 2.0f;
+	bg_layer_scale_y = ymulti3 * 2.0f;
+	const float texscalex = WINDOW_WIDTH_PIXELS_F / bg_layer_texture_width * bg_layer_scale_x;
+	const float texscaley = WINDOW_HEIGHT_PIXELS_F / bg_layer_texture_height * bg_layer_scale_y;
 
 	const float texmodel[ 9 ] =
 	{
@@ -256,7 +272,7 @@ void engine_change_bg_texture( const unsigned char * pixels, size_t width, size_
 		0.0f, texscaley, 0.0f,
 		0.0f, 0.0f, 1.0f,
 	};
-	glUniformMatrix3fv( bg_texmodel_location, 1, GL_FALSE, texmodel );
+	glUniformMatrix3fv( bg_layer_texmodel_location, 1, GL_FALSE, texmodel );
 }
 
 void engine_change_texture( const unsigned char * pixels )
@@ -302,8 +318,9 @@ int engine_init( const char * title )
 	glEnable( GL_BLEND );
 	glBlendFunc( GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA );
 
+	init_bg_color_renderer();
 	init_rect_renderer();
-	init_bg_renderer();
+	init_bg_layer_renderer();
 	init_sprite_renderer();
 	init_tile_renderer();
 	init_spotlight();
@@ -407,7 +424,8 @@ void engine_render( const camera_t * camera )
 	glClear( GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT );
 
 	// Render elements to framebuffer.
-	render_bg( camera );
+	render_bg_color();
+	render_bg_layer( camera );
 	render_tiles( camera );
 	render_sprites( camera );
 	render_rects( camera );
@@ -455,17 +473,106 @@ void engine_render( const camera_t * camera )
 	SDL_GL_SwapWindow( window );
 }
 
+void engine_set_bg_color( float r, float g, float b, float a )
+{
+	// Update vertices buffer.
+	float vertices[] = {
+		-1.0f, -1.0f, r, g, b, a, // Lower left
+		 1.0f, -1.0f, r, g, b, a, // Lower right
+		 1.0f,  1.0f, r, g, b, a, // Upper right
+		-1.0f,  1.0f, r, g, b, a  // Upper left
+	};
+	glBindBuffer( GL_ARRAY_BUFFER, bg_color_vbo );
+	glBufferData( GL_ARRAY_BUFFER, sizeof( vertices ), vertices, GL_STATIC_DRAW );
+
+	// Unbind VBO.
+	glBindBuffer( GL_ARRAY_BUFFER, 0 );
+}
+
+void engine_set_bg_color_gradient( unsigned int direction, color_t start, color_t end )
+{
+	color_t tl = start;
+	color_t tr = start;
+	color_t bl = start;
+	color_t br = start;
+
+	switch ( direction )
+	{
+		case DIR_UP:
+			tl = end;
+			tr = end;
+			bl = start;
+			br = start;
+		break;
+		case DIR_UP_RIGHT:
+			tl = start;
+			tr = end;
+			bl = start;
+			br = start;
+		break;
+		case DIR_RIGHT:
+			tl = start;
+			tr = end;
+			bl = start;
+			br = end;
+		break;
+		case DIR_DOWN_RIGHT:
+			tl = start;
+			tr = start;
+			bl = start;
+			br = end;
+		break;
+		case DIR_DOWN:
+			tl = start;
+			tr = start;
+			bl = end;
+			br = end;
+		break;
+		case DIR_DOWN_LEFT:
+			tl = start;
+			tr = start;
+			bl = end;
+			br = start;
+		break;
+		case DIR_LEFT:
+			tl = end;
+			tr = start;
+			bl = end;
+			br = start;
+		break;
+		case DIR_UP_LEFT:
+			tl = end;
+			tr = start;
+			bl = start;
+			br = start;
+		break;
+	}
+
+	// Update vertices buffer.
+	float vertices[] = {
+		-1.0f, -1.0f, bl.r, bl.g, bl.b, bl.a, // Lower left
+		 1.0f, -1.0f, br.r, br.g, br.b, br.a, // Lower right
+		 1.0f,  1.0f, tr.r, tr.g, tr.b, tr.a, // Upper right
+		-1.0f,  1.0f, tl.r, tl.g, tl.b, tl.a  // Upper left
+	};
+	glBindBuffer( GL_ARRAY_BUFFER, bg_color_vbo );
+	glBufferData( GL_ARRAY_BUFFER, sizeof( vertices ), vertices, GL_STATIC_DRAW );
+
+	// Unbind VBO.
+	glBindBuffer( GL_ARRAY_BUFFER, 0 );
+}
+
 void engine_set_blur_zoom( float zoom )
 {
 	glUniform1f( blur_zoom_location, zoom );
 }
 
-void engine_set_palette_index( float index )
+void engine_set_palette_index( unsigned int index )
 {
-	palette_index = index;
+	palette_index = ( float )( index ) / palette_count;
 }
 
-void engine_set_palettes( unsigned char * colors, size_t palette_count )
+void engine_set_palettes( unsigned char * colors, size_t count )
 {
 	glActiveTexture( GL_TEXTURE1 );
 	if ( palette_texture == 0 )
@@ -473,9 +580,11 @@ void engine_set_palettes( unsigned char * colors, size_t palette_count )
 		glGenTextures( 1, &palette_texture );
 	}
 	glBindTexture( GL_TEXTURE_2D, palette_texture );
-	glTexImage2D( GL_TEXTURE_2D, 0, GL_RGB5_A1, 8, palette_count, 0, GL_RGBA, GL_UNSIGNED_SHORT_5_5_5_1, colors );
+	glTexImage2D( GL_TEXTURE_2D, 0, GL_RGB5_A1, 8, count, 0, GL_RGBA, GL_UNSIGNED_SHORT_5_5_5_1, colors );
 	glTexParameteri( GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST );
 	glTexParameteri( GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST );
+
+	palette_count = ( float )( count );
 }
 
 void engine_set_rect_h( rect_gfx_id_t rect_id, float h )
@@ -584,10 +693,10 @@ void engine_sleep( uint16_t ms )
 	SDL_Delay( ms );
 }
 
-void engine_update_bg_offset( float x, float y )
+void engine_update_bg_layer_offset( float x, float y )
 {
-	bg_offset_x = fmod( bg_offset_x + x, bg_texture_width );
-	bg_offset_y = fmod( bg_offset_y + y, bg_texture_height );
+	bg_layer_offset_x = fmod( bg_layer_offset_x + x, bg_layer_texture_width );
+	bg_layer_offset_y = fmod( bg_layer_offset_y + y, bg_layer_texture_height );
 }
 
 unsigned int input_pressed_down()
@@ -680,7 +789,71 @@ static float get_tile_srcy( float srcy )
 	return srcy / 1024.0f;
 }
 
-static void init_bg_renderer()
+static void init_bg_color_renderer()
+{
+	const char * vertex_shader_src = "#version 330\n"
+		"layout(location = 0) in vec2 i_position;\n"
+		"layout(location = 1) in vec4 i_color;\n"
+		"\n"
+		"uniform mat3 u_model;\n"
+		"\n"
+		"out vec4 o_color;\n"
+		"\n"
+		"void main()\n"
+		"{\n"
+		"	vec3 pos = vec3( i_position, 1.0 ) * u_model;\n"
+		"	gl_Position = vec4( pos.xy, 0.0, 1.0 );\n"
+		"	o_color = i_color;\n"
+		"}\n";
+
+	const char * fragment_shader_src = "#version 330\n"
+		"in vec4 o_color;\n"
+		"\n"
+		"void main()\n"
+		"{\n"
+		"	gl_FragColor = o_color;\n"
+		"}\n";
+	
+	bg_color_program = create_shader_program( vertex_shader_src, fragment_shader_src );
+
+	glUseProgram( bg_color_program );
+
+	float vertices[] = {
+		-1.0f, -1.0f, 1.0f, 1.0f, 1.0f, 1.0f, // Lower left
+		 1.0f, -1.0f, 1.0f, 1.0f, 1.0f, 1.0f, // Lower right
+		 1.0f,  1.0f, 1.0f, 1.0f, 1.0f, 1.0f, // Upper right
+		-1.0f,  1.0f, 1.0f, 1.0f, 1.0f, 1.0f  // Upper left
+	};
+
+	int indices[] = {
+		0, 1, 3,
+		1, 2, 3
+	};
+
+	glGenVertexArrays( 1, &bg_color_vao );
+	glBindVertexArray( bg_color_vao );
+	glGenBuffers( 1, &bg_color_vbo );
+	glBindBuffer( GL_ARRAY_BUFFER, bg_color_vbo );
+	glBufferData( GL_ARRAY_BUFFER, sizeof( vertices ), vertices, GL_STATIC_DRAW );
+	glVertexAttribPointer( 0, 2, GL_FLOAT, GL_FALSE, 6 * sizeof( float ), 0 );
+	glEnableVertexAttribArray( 0 );
+	glVertexAttribPointer( 1, 4, GL_FLOAT, GL_FALSE, 6 * sizeof( float ), ( void * )( 2 * sizeof( float ) ) );
+	glEnableVertexAttribArray( 1 );
+	GLuint ebo;
+	glGenBuffers( 1, &ebo );
+	glBindBuffer( GL_ELEMENT_ARRAY_BUFFER, ebo );
+	glBufferData( GL_ELEMENT_ARRAY_BUFFER, sizeof( indices ), indices, GL_STATIC_DRAW );
+
+	// Set up model uniform.
+	const GLuint bg_color_model_location = glGetUniformLocation( bg_color_program, "u_model" );
+	glUniformMatrix3fv( bg_color_model_location, 1, GL_FALSE, ( const GLfloat[] ){
+		1.0f, 0.0f, 0.0f,
+		0.0f, 1.0f, 0.0f,
+		0.0f, 0.0f, 1.0f
+	} );
+}
+
+static void init_bg_layer_renderer()
 {
 	const char * vertex_shader_src = "#version 330\n"
 		"layout(location = 0) in vec2 i_position;\n"
@@ -722,9 +895,9 @@ static void init_bg_renderer()
 		"	);\n"
 		"}\n";
 	
-	bg_program = create_shader_program( vertex_shader_src, fragment_shader_src );
+	bg_layer_program = create_shader_program( vertex_shader_src, fragment_shader_src );
 
-	glUseProgram( bg_program );
+	glUseProgram( bg_layer_program );
 
 	float vertices[] = {
 		-1.0f, -1.0f, 0.0f, 1.0f, // Lower left
@@ -738,8 +911,8 @@ static void init_bg_renderer()
 		1, 2, 3
 	};
 
-	glGenVertexArrays( 1, &bg_vao );
-	glBindVertexArray( bg_vao );
+	glGenVertexArrays( 1, &bg_layer_vao );
+	glBindVertexArray( bg_layer_vao );
 	GLuint vbo;
 	glGenBuffers( 1, &vbo );
 	glBindBuffer( GL_ARRAY_BUFFER, vbo );
@@ -753,32 +926,32 @@ static void init_bg_renderer()
 	glBindBuffer( GL_ELEMENT_ARRAY_BUFFER, ebo );
 	glBufferData( GL_ELEMENT_ARRAY_BUFFER, sizeof( indices ), indices, GL_STATIC_DRAW );
 
-	GLuint bg_u_texture_location = glGetUniformLocation( bg_program, "u_texture" );
-	glUniform1i( bg_u_texture_location, 2 );
-	GLuint bg_u_palette_texture_location = glGetUniformLocation( bg_program, "u_palette_texture" );
-	glUniform1i( bg_u_palette_texture_location, 1 );
-
-	bg_palette_index_location = glGetUniformLocation( bg_program, "u_palette_index" );
+	GLuint bg_layer_u_texture_location = glGetUniformLocation( bg_layer_program, "u_texture" );
+	glUniform1i( bg_layer_u_texture_location, 2 );
+	GLuint bg_layer_u_palette_texture_location = glGetUniformLocation( bg_layer_program, "u_palette_texture" );
+	glUniform1i( bg_layer_u_palette_texture_location, 1 );
+	bg_layer_palette_index_location = glGetUniformLocation( bg_layer_program, "u_palette_index" );
+	glUniform1f( bg_layer_palette_index_location, 0.0f );
 
 	// Set up camera uniform.
-	bg_camera_location = glGetUniformLocation( bg_program, "u_camera" );
-	glUniformMatrix3fv( bg_camera_location, 1, GL_FALSE, ( const GLfloat[] ){
+	bg_layer_camera_location = glGetUniformLocation( bg_layer_program, "u_camera" );
+	glUniformMatrix3fv( bg_layer_camera_location, 1, GL_FALSE, ( const GLfloat[] ){
 		1.0f, 0.0f, 0.0f,
 		0.0f, 1.0f, 0.0f,
 		0.0f, 0.0f, 1.0f
 	} );
 
 	// Set up model uniform.
-	bg_model_location = glGetUniformLocation( bg_program, "u_model" );
-	glUniformMatrix3fv( bg_model_location, 1, GL_FALSE, ( const GLfloat[] ){
+	bg_layer_model_location = glGetUniformLocation( bg_layer_program, "u_model" );
+	glUniformMatrix3fv( bg_layer_model_location, 1, GL_FALSE, ( const GLfloat[] ){
 		1.0f, 0.0f, 0.0f,
 		0.0f, 1.0f, 0.0f,
 		0.0f, 0.0f, 1.0f
 	} );
 
 	// Set up texture model uniform.
-	bg_texmodel_location = glGetUniformLocation( bg_program, "u_texmodel" );
-	glUniformMatrix3fv( bg_texmodel_location, 1, GL_FALSE, ( const GLfloat[] ){
+	bg_layer_texmodel_location = glGetUniformLocation( bg_layer_program, "u_texmodel" );
+	glUniformMatrix3fv( bg_layer_texmodel_location, 1, GL_FALSE, ( const GLfloat[] ){
 		1.0f, 0.0f, 0.0f,
 		0.0f, 1.0f, 0.0f,
 		0.0f, 0.0f, 1.0f
@@ -1469,30 +1642,45 @@ static void init_tile_renderer()
 	glUniform2f( tile_camera_location, 0.0f, 0.0f );
 }
 
-static void render_bg( const camera_t * camera )
+static void render_bg_color()
+{
+	glDisable( GL_BLEND );
+	glEnable( GL_DEPTH_TEST );
+
+	glUseProgram( bg_color_program );
+
+	// Draw graphics.
+	glBindVertexArray( bg_color_vao );
+	glDrawElements( GL_TRIANGLES, 6, GL_UNSIGNED_INT, 0 );
+}
+
+static void render_bg_layer( const camera_t * camera )
 {
 	glEnable( GL_BLEND );
 	glDisable( GL_DEPTH_TEST );
 
-	glUseProgram( bg_program );
+	glUseProgram( bg_layer_program );
 
 	// Update camera.
 	const float camera_mat[ 9 ] =
 	{
-		1.0f, 0.0f, -( camera->x * 2.0f / WINDOW_WIDTH_PIXELS_F ) * bg_scroll_x,
-		0.0f, 1.0f, ( camera->y * 2.0f / WINDOW_HEIGHT_PIXELS_F ) * bg_scroll_y,
+		1.0f, 0.0f, -( camera->x * 2.0f / WINDOW_WIDTH_PIXELS_F ) * bg_layer_scroll_x,
+		0.0f, 1.0f, ( camera->y * 2.0f / WINDOW_HEIGHT_PIXELS_F ) * bg_layer_scroll_y,
 		0.0f, 0.0f, 1.0f,
 	};
-	glUniformMatrix3fv( bg_camera_location, 1, GL_FALSE, camera_mat );
+	glUniformMatrix3fv( bg_layer_camera_location, 1, GL_FALSE, camera_mat );
 
-	const float bgw = bg_scale_x * WINDOW_WIDTH_PIXELS_F;
-	const float bgh = bg_scale_y * WINDOW_HEIGHT_PIXELS_F;
-	const float xoffset = bg_offset_x > 0.0f
-		? -bg_texture_width + bg_offset_x
-		: bg_offset_x;
-	const float yoffset = bg_offset_y > 0.0f
-		? -bg_texture_height + bg_offset_y
-		: bg_offset_y;
+	// Update palette.
+	glUniform1f( bg_layer_palette_index_location, palette_index );
+
+	const float bgw = bg_layer_scale_x * WINDOW_WIDTH_PIXELS_F;
+	const float bgh = bg_layer_scale_y * WINDOW_HEIGHT_PIXELS_F;
+	const float xoffset = bg_layer_offset_x > 0.0f
+		? -bg_layer_texture_width + bg_layer_offset_x
+		: bg_layer_offset_x;
+	const float yoffset = bg_layer_offset_y > 0.0f
+		? -bg_layer_texture_height + bg_layer_offset_y
+		: bg_layer_offset_y;
 	const float bgcenterx = bgw / 2.0f + xoffset;
 	const float bgcentery = bgh / 2.0f + yoffset;
 	const float screencenterx = WINDOW_WIDTH_PIXELS_F / 2.0f;
@@ -1504,14 +1692,14 @@ static void render_bg( const camera_t * camera )
 
 	const float model[ 9 ] =
 	{
-		bg_scale_x, 0.0f, xpos,
-		0.0f, bg_scale_y, -ypos,
+		bg_layer_scale_x, 0.0f, xpos,
+		0.0f, bg_layer_scale_y, -ypos,
 		0.0f, 0.0f, 1.0f,
 	};
-	glUniformMatrix3fv( bg_model_location, 1, GL_FALSE, model );
+	glUniformMatrix3fv( bg_layer_model_location, 1, GL_FALSE, model );
 
 	// Draw graphics.
-	glBindVertexArray( bg_vao );
+	glBindVertexArray( bg_layer_vao );
 	glDrawElements( GL_TRIANGLES, 6, GL_UNSIGNED_INT, 0 );
 }
 

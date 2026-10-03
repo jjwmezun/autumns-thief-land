@@ -1,5 +1,6 @@
 #include "config.h"
 #include "data.h"
+#include "dir.h"
 #include "engine.h"
 #include "map.h"
 #include <stdlib.h>
@@ -104,7 +105,7 @@ int main()
 			bgpixels[ y * bg_gfx_data.width + x ] = bg_gfx_data.pixels[ y * bg_gfx_data.width + x ] * 32;
 		}
 	}
-	engine_change_bg_texture( bgpixels, bg_gfx_data.width, bg_gfx_data.height, map.width, map.height, 1.0f, 1.0f );
+	engine_change_bg_layer_texture( bgpixels, bg_gfx_data.width, bg_gfx_data.height, map.width, map.height, 1.0f, 1.0f );
 
 	// Init other sprites.
 	sprite_t sprites[ SPRITE_COUNT ] = {
@@ -145,6 +146,14 @@ int main()
 		);
 	}
 
+	engine_set_palette_index( 2 );
+	engine_set_bg_color_gradient
+	(
+		DIR_DOWN,
+		( color_t ){ 1.0f, 0.914f, 0.616f, 1.0f },
+		( color_t ){ 0.129f, 0.263f, 0.075f, 1.0f }
+	);
+
 	while ( running )
 	{
 		running = engine_loop();
@@ -162,10 +171,7 @@ int main()
 			}
 		}
 
-		palette_index += 0.01f;
-		engine_set_palette_index( palette_index );
-
-		engine_update_bg_offset( -1.0f, -0.5f );
+		//engine_update_bg_layer_offset( -1.0f, -0.5f );
 
 		for ( size_t i = 0; i < RAIN_COUNT; ++i )
 		{
