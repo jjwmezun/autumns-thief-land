@@ -97,6 +97,7 @@ static rect_gfx_id_t rects_count = 0;
 static SDL_Window * window;
 static GLuint fbtextures[ 2 ];
 static GLuint fbo[ 2 ];
+static GLuint rbo[ 2 ];
 static GLuint fbprogram;
 static GLuint fbvao;
 static GLuint fb_texture_location;
@@ -424,14 +425,21 @@ void engine_render( const camera_t * camera )
 	glClear( GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT );
 
 	// Render elements to framebuffer.
-	render_bg_color();
-	render_bg_layer( camera );
-	render_tiles( camera );
+
+	// Render elements with depth buffering 1st.
 	render_sprites( camera );
+	render_tiles( camera );
+	render_bg_layer( camera );
+	render_bg_color();
+
+	// Render elements without depth buffering 2nd.
 	render_rects( camera );
 
 	// Start rendering 2nd framebuffer.
 	glBindFramebuffer( GL_FRAMEBUFFER, fbo[ 1 ] );
+
+	// Clear the screen.
+	glClear( GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT );
 
 	if ( 1 )
 	{
@@ -1027,7 +1035,7 @@ static void init_blur()
 
 static void init_framebuffers()
 {
-	// Init framebuffer.
+	// Init shaders.
 	const char * fb_vertex_shader =
 		"#version 330\n"
 		"layout(location = 0) in vec2 a_position;\n"
@@ -1054,6 +1062,7 @@ static void init_framebuffers()
 	fbprogram = create_shader_program( fb_vertex_shader, fb_fragment_shader );
 	glUseProgram( fbprogram );
 
+	// Init vertex data.
 	float vertices[] = {
 		-1.0f, -1.0f, 0.0f, 0.0f, // Lower left
 		1.0f, -1.0f, 1.0f, 0.0f,  // Lower right
@@ -1083,7 +1092,9 @@ static void init_framebuffers()
 
 	fb_texture_location = glGetUniformLocation( fbprogram, "u_texture" );
 
+	// Init framebuffers, renderbuffers ( for depth testing ) & textures.
 	glGenFramebuffers( 2, fbo );
+	glGenRenderbuffers( 2, rbo );
 	glGenTextures( 2, fbtextures );
 	glBindFramebuffer( GL_FRAMEBUFFER, fbo[ 0 ] );
 	glActiveTexture( GL_TEXTURE3 );
@@ -1092,6 +1103,9 @@ static void init_framebuffers()
 	glTexParameteri( GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST );
 	glTexParameteri( GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST );
 	glFramebufferTexture2D( GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, fbtextures[ 0 ], 0 );
+	glBindRenderbuffer( GL_RENDERBUFFER, rbo[ 0 ] );
+	glRenderbufferStorage( GL_RENDERBUFFER, GL_DEPTH24_STENCIL8, WINDOW_WIDTH_PIXELS * magnification, WINDOW_HEIGHT_PIXELS * magnification );
+	glFramebufferRenderbuffer( GL_FRAMEBUFFER, GL_DEPTH_STENCIL_ATTACHMENT, GL_RENDERBUFFER, rbo[ 0 ] );
 	if( glCheckFramebufferStatus( GL_FRAMEBUFFER ) != GL_FRAMEBUFFER_COMPLETE )
 	{
 		printf( "Error generating framebuffer.\n" );
@@ -1103,6 +1117,9 @@ static void init_framebuffers()
 	glTexParameteri( GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST );
 	glTexParameteri( GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST );
 	glFramebufferTexture2D( GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, fbtextures[ 1 ], 0 );
+	glBindRenderbuffer( GL_RENDERBUFFER, rbo[ 1 ] );
+	glRenderbufferStorage( GL_RENDERBUFFER, GL_DEPTH24_STENCIL8, WINDOW_WIDTH_PIXELS * magnification, WINDOW_HEIGHT_PIXELS * magnification );
+	glFramebufferRenderbuffer( GL_FRAMEBUFFER, GL_DEPTH_STENCIL_ATTACHMENT, GL_RENDERBUFFER, rbo[ 1 ] );
 	if( glCheckFramebufferStatus( GL_FRAMEBUFFER ) != GL_FRAMEBUFFER_COMPLETE )
 	{
 		printf( "Error generating framebuffer.\n" );
@@ -1656,8 +1673,8 @@ static void render_bg_color()
 
 static void render_bg_layer( const camera_t * camera )
 {
-	glEnable( GL_BLEND );
-	glDisable( GL_DEPTH_TEST );
+	glDisable( GL_BLEND );
+	glEnable( GL_DEPTH_TEST );
 
 	glUseProgram( bg_layer_program );
 
@@ -1822,13 +1839,19 @@ static void update_screen()
 
 	update_viewport();
 
-	// Update framebuffer texture size.
+	// Update framebuffer texture sizes & depth buffer sizes.
 	glActiveTexture( GL_TEXTURE3 );
 	glBindTexture( GL_TEXTURE_2D, fbtextures[ 0 ] );
 	glTexImage2D( GL_TEXTURE_2D, 0, GL_RGBA, WINDOW_WIDTH_PIXELS * magnification, WINDOW_HEIGHT_PIXELS * magnification, 0, GL_RGBA, GL_UNSIGNED_BYTE, NULL );
+	glBindRenderbuffer( GL_RENDERBUFFER, rbo[ 0 ] );
+	glRenderbufferStorage( GL_RENDERBUFFER, GL_DEPTH24_STENCIL8, WINDOW_WIDTH_PIXELS * magnification, WINDOW_HEIGHT_PIXELS * magnification );
+	glFramebufferRenderbuffer( GL_FRAMEBUFFER, GL_DEPTH_STENCIL_ATTACHMENT, GL_RENDERBUFFER, rbo[ 0 ] );
 	glActiveTexture( GL_TEXTURE4 );
 	glBindTexture( GL_TEXTURE_2D, fbtextures[ 1 ] );
 	glTexImage2D( GL_TEXTURE_2D, 0, GL_RGBA, WINDOW_WIDTH_PIXELS * magnification, WINDOW_HEIGHT_PIXELS * magnification, 0, GL_RGBA, GL_UNSIGNED_BYTE, NULL );
+	glBindRenderbuffer( GL_RENDERBUFFER, rbo[ 1 ] );
+	glRenderbufferStorage( GL_RENDERBUFFER, GL_DEPTH24_STENCIL8, WINDOW_WIDTH_PIXELS * magnification, WINDOW_HEIGHT_PIXELS * magnification );
+	glFramebufferRenderbuffer( GL_FRAMEBUFFER, GL_DEPTH_STENCIL_ATTACHMENT, GL_RENDERBUFFER, rbo[ 1 ] );
 }
 
 static void update_viewport()
