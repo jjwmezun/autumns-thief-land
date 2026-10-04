@@ -44,7 +44,8 @@ typedef struct collision_t {
 	uint16_t x;
 	uint16_t y;
 	unsigned int valid : 1;
-} collision_t;
+}
+collision_t;
 
 typedef struct sprite_t
 {
@@ -64,6 +65,8 @@ typedef struct sprite_t
 			unsigned int isducking : 1;
 			unsigned int jumplock : 1;
 			unsigned int prev_underwater : 1;
+			unsigned int walktimer : 3;
+			unsigned int walkanimation : 2;
 		}
 		player;
 		struct
@@ -90,16 +93,22 @@ typedef struct sprite_t
 		hydrant;
 	}
 	specific;
-	struct
-	{
-		graphic_id_t rect;
-		graphic_id_t lcollision;
-		graphic_id_t rcollision;
-		graphic_id_t bcollision;
-		graphic_id_t tcollision;
-		graphic_id_t slopepoint;
-	}
-	graphics;
+
+	#ifdef DEBUG
+		struct
+		{
+			graphic_id_t rect_t;
+			graphic_id_t lcollision;
+			graphic_id_t rcollision;
+			graphic_id_t bcollision;
+			graphic_id_t tcollision;
+			graphic_id_t slopepoint;
+		}
+		graphics;
+	#endif
+
+	sprite_id_t graphics;
+
 	struct
 	{
 		float lpadding;
@@ -141,7 +150,8 @@ typedef struct sprite_t
 	unsigned int collided_right_slope : 1;
 	unsigned int collided_bottom_slope_steepness : 2;
 	unsigned int collided_bottom_slope_dir : 1;
-} sprite_t;
+}
+sprite_t;
 
 sprite_t sprite_create( float x, float y, uint8_t type );
 void sprite_update( map_t * map, sprite_t * sprite, camera_t * camera );

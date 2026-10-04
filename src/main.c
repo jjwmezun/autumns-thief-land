@@ -1,19 +1,50 @@
 #include "config.h"
+#include "data.h"
+#include "dir.h"
 #include "engine.h"
 #include "map.h"
+#include <stdlib.h>
 #include <stdio.h>
 #include "rand.h"
 #include "sprite.h"
+#include <string.h>
 #include "tile.h"
 
 #define SPRITE_COUNT 1
+#define RAIN_COUNT ( WINDOW_WIDTH_PIXELS * 2 )
+
+#define RAIN_H() ( rand_range( 32.0f, 320.0f ) )
+#define RAIN_Y( h ) ( rand_range( -( h ) - 4.0f, -( h ) - 224.0f ) )
+#define RAIN_VY() ( rand_range( 0.2f, 4.0f ) )
+
+typedef struct raindrop_t
+{
+	rect_gfx_id_t gfx;
+	float y;
+	float h;
+	float vy;
+} raindrop_t;
 
 static unsigned int running = 1;
 static float prev_ticks = 0.0f;
 static float maxdt = 0.0f;
+static float palette_index = 0.0f;
+static float timecounts[ 1000 ] = { 0.0f };
+static size_t timecount_index = 0;
+static float zoom = 1.0f;
+static float bgx = 0.0f;
+static float bgy = 0.0f;
+static raindrop_t rain[ RAIN_COUNT ];
 
 int main()
 {
+	// Init game data.
+	if ( data_load() != 0 )
+	{
+		fprintf( stderr, "Failed to load data.\n" );
+		return 1;
+	}
+
 	// Init game engine.
 	if ( engine_init( "Autumn’s Thief Land" ) != 0 )
 	{
@@ -21,11 +52,60 @@ int main()
 		return 1;
 	}
 
+	// Init texture.
+	unsigned char pixels[ 1024 * 1024 ];
+	memset( pixels, 0, 1024 * 1024 );
+	unsigned char * block_gfx_data = data_get_universal_block_gfx_data();
+	for ( size_t y = 0; y < 64; ++y )
+	{
+		for ( size_t x = 0; x < 512; ++x )
+		{
+			pixels[ y * 1024 + x ] = block_gfx_data[ y * 512 + x ] * 32;
+		}
+	}
+	unsigned char * charset_gfx_data = data_get_charset_gfx_data();
+	for ( size_t y = 0; y < 576; ++y )
+	{
+		for ( size_t x = 0; x < 512; ++x )
+		{
+			pixels[ ( y + 64 ) * 1024 + x ] = charset_gfx_data[ y * 512 + x ] * 32;
+		}
+	}
+	unsigned char * sprite_gfx_data = data_get_sprite_gfx_data();
+	for ( size_t y = 0; y < 512; ++y )
+	{
+		for ( size_t x = 0; x < 512; ++x )
+		{
+			pixels[ y * 1024 + 512 + x ] = sprite_gfx_data[ y * 512 + x ] * 32;
+		}
+	}
+	engine_change_texture( pixels );
+
+	// Init palette.
+	const size_t palette_count = data_get_main_palette_count();
+	unsigned char * colors = data_get_main_palette_data();
+	engine_set_palettes( colors, palette_count );
+	free( colors );
+
 	rand_init();
 
 	// Init map.
 	map_t map = create_map();
 	camera_t camera = { 0.0f, 0.0f, WINDOW_WIDTH_PIXELS_F, WINDOW_HEIGHT_PIXELS_F };
+
+	// Init BG.
+	gfx_data_t bg_gfx_data = data_get_background_gfx_data( 1 );
+	printf( "Background gfx data: width=%zu, height=%zu\n", bg_gfx_data.width, bg_gfx_data.height );
+	unsigned char bgpixels[ bg_gfx_data.width * bg_gfx_data.height ];
+	memset( bgpixels, 0, bg_gfx_data.width * bg_gfx_data.height );
+	for ( size_t y = 0; y < bg_gfx_data.height; ++y )
+	{
+		for ( size_t x = 0; x < bg_gfx_data.width; ++x )
+		{
+			bgpixels[ y * bg_gfx_data.width + x ] = bg_gfx_data.pixels[ y * bg_gfx_data.width + x ] * 32;
+		}
+	}
+	engine_change_bg_layer_texture( bgpixels, bg_gfx_data.width, bg_gfx_data.height, map.width, map.height, 1.0f, 1.0f );
 
 	// Init other sprites.
 	sprite_t sprites[ SPRITE_COUNT ] = {
@@ -37,23 +117,42 @@ int main()
 		//sprite_create( 13.0f, 15.0f, SPRITE_TYPE_CRAB )
 	};
 
-	add_priority_map_graphics( &map );
-
+	/*
 	// Add gridline graphics.
 	for ( size_t i = 0; i < map.width; ++i )
 	{
-		engine_add_graphic(
-			( rect ){ 16.0f * ( float )( i ) - 0.5f, 0.0f, 1.0f, ( float )( map.height * 16 ) },
-			( color ){ 0.0f, 0.0f, 1.0f, 0.5f }
+		engine_add_rect(
+			( rect_t ){ 16.0f * ( float )( i ) - 0.5f, 0.0f, 1.0f, ( float )( map.height * 16 ) },
+			( color_t ){ 0.0f, 0.0f, 1.0f, 0.5f }
 		);
 	}
 	for ( size_t i = 0; i < map.height; ++i )
 	{
-		engine_add_graphic(
-			( rect ){ 0.0f, 16.0f * ( float )( i ) - 0.5f, ( float )( map.width * 16 ), 1.0f },
-			( color ){ 0.0f, 0.0f, 1.0f, 0.5f }
+		engine_add_rect(
+			( rect_t ){ 0.0f, 16.0f * ( float )( i ) - 0.5f, ( float )( map.width * 16 ), 1.0f },
+			( color_t ){ 0.0f, 0.0f, 1.0f, 0.5f }
+		);
+	}*/
+
+	for ( size_t i = 0; i < RAIN_COUNT; ++i )
+	{
+		rain[ i ].h = RAIN_H();
+		rain[ i ].y = rand_range( -rain[ i ].h - 32.0f, 224.0f );
+		rain[ i ].vy = RAIN_VY();
+		unsigned int x = ( unsigned int )( i ) % ( WINDOW_WIDTH_PIXELS / 2 );
+		rain[ i ].gfx = engine_add_rect(
+			( rect_t ){ ( float )( x * 2 ), rain[ i ].y, 1.0f, rain[ i ].h },
+			3
 		);
 	}
+
+	engine_set_palette_index( 2 );
+	engine_set_bg_color_gradient
+	(
+		DIR_DOWN,
+		( color_t ){ 1.0f, 0.914f, 0.616f, 1.0f },
+		( color_t ){ 0.129f, 0.263f, 0.075f, 1.0f }
+	);
 
 	while ( running )
 	{
@@ -72,9 +171,45 @@ int main()
 			}
 		}
 
+		//engine_update_bg_layer_offset( -1.0f, -0.5f );
+
+		for ( size_t i = 0; i < RAIN_COUNT; ++i )
+		{
+			rain[ i ].y += rain[ i ].vy;
+			if ( rain[ i ].y > WINDOW_HEIGHT_PIXELS_F )
+			{
+				rain[ i ].h = RAIN_H();
+				rain[ i ].y = RAIN_Y( rain[ i ].h );
+				rain[ i ].vy = RAIN_VY();
+			}
+			engine_set_rect_y( rain[ i ].gfx, rain[ i ].y );
+			engine_set_rect_h( rain[ i ].gfx, rain[ i ].h );
+		}
+
+		/*
+		if ( input_pressed_up() )
+		{
+			zoom += 0.1f;
+			engine_set_blur_zoom( zoom );
+		}
+		else if ( input_pressed_down() )
+		{
+			zoom -= 0.1f;
+			if ( zoom < 1.0f )
+			{
+				zoom = 1.0f;
+			}
+			engine_set_blur_zoom( zoom );
+		}
+		*/
+
 		engine_render( &camera );
 
 		const float ticks = engine_get_ticks();
+		if ( timecount_index < 1000 )
+		{
+			timecounts[ timecount_index++ ] = ticks - prev_ticks;
+		}
 		if ( ticks - prev_ticks < 16.0f )
 		{
 			engine_sleep( 16 - ( ticks - prev_ticks ) );
@@ -83,7 +218,19 @@ int main()
 	}
 
 	// Test lowest FPS.
-	printf( "Max delta: %.5f seconds.\n", maxdt / 60.0f );
+	float maxtime = 0.0f;
+	float totaltime = 0.0f;
+	for ( size_t i = 0; i < timecount_index; ++i )
+	{
+		if ( timecounts[ i ] > maxtime )
+		{
+			maxtime = timecounts[ i ];
+		}
+		totaltime += timecounts[ i ];
+	}
+	float avgtime = totaltime / timecount_index;
+	printf( "Max time: %.5f seconds.\n", maxtime / 60.0f );
+	printf( "Avg time: %.5f seconds.\n", avgtime / 60.0f );
 
 	return 0;
 }
