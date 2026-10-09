@@ -1,3 +1,4 @@
+#include "camera.h"
 #include "config.h"
 #include "dir.h"
 #include "engine.h"
@@ -60,6 +61,8 @@ typedef struct tile_graphic_t
 {
 	pair_t pos;
 	pair_t texpos;
+	float animation;
+	float animation_speed;
 }
 tile_graphic_t;
 
@@ -131,6 +134,7 @@ static tile_data_t tiles_data[ MAX_TILES ];
 static tile_id_t tiles_count = 0;
 static GLuint tile_palette_index_location;
 static GLuint tile_camera_location;
+static GLuint tile_animation_location;
 static GLuint bg_layer_texture;
 static GLuint bg_layer_program;
 static GLuint bg_layer_vao;
@@ -157,6 +161,7 @@ static float bg_layer_scale_x = 0.0f;
 static float bg_layer_scale_y = 0.0f;
 static float bg_layer_offset_x = -1000.0f;
 static float bg_layer_offset_y = -32.0f;
+static float tile_animation = 0.0f;
 static struct
 {
 	unsigned int up : 1;
@@ -210,7 +215,7 @@ sprite_id_t engine_add_sprite( rect_t pos, rect_t texcoords )
 	return sprites_count++;
 }
 
-tile_id_t engine_add_tile( float x, float y, float srcx, float srcy )
+tile_id_t engine_add_tile( tile_gfx_args_t args )
 {
 	if ( tiles_count >= MAX_TILES )
 	{
@@ -218,12 +223,14 @@ tile_id_t engine_add_tile( float x, float y, float srcx, float srcy )
 		return 1;
 	}
 
-	tiles_data[ tiles_count ].pos.x = x;
-	tiles_data[ tiles_count ].pos.y = y;
-	tiles[ tiles_count ].pos.x = get_tile_x( x );
-	tiles[ tiles_count ].pos.y = get_tile_y( y );
-	tiles[ tiles_count ].texpos.x = get_tile_srcx( srcx );
-	tiles[ tiles_count ].texpos.y = get_tile_srcy( srcy );
+	tiles_data[ tiles_count ].pos.x = args.x;
+	tiles_data[ tiles_count ].pos.y = args.y;
+	tiles[ tiles_count ].pos.x = get_tile_x( args.x );
+	tiles[ tiles_count ].pos.y = get_tile_y( args.y );
+	tiles[ tiles_count ].texpos.x = get_tile_srcx( args.srcx );
+	tiles[ tiles_count ].texpos.y = get_tile_srcy( args.srcy );
+	tiles[ tiles_count ].animation = args.animation;
+	tiles[ tiles_count ].animation_speed = args.animation_speed == 0.0f ? 8.0f : args.animation_speed;
 	return tiles_count++;
 }
 
@@ -410,7 +417,7 @@ int engine_loop()
 	return 1;
 }
 
-void engine_render( const camera_t * camera )
+void engine_render( const struct camera_t * camera )
 {
 	// Clear the screen.
 	glClearColor( 0.0f, 0.0f, 0.0f, 1.0f );
@@ -479,6 +486,8 @@ void engine_render( const camera_t * camera )
 	glDrawElements( GL_TRIANGLES, 6, GL_UNSIGNED_INT, 0 );
 
 	SDL_GL_SwapWindow( window );
+
+	tile_animation += 1.0f;
 }
 
 void engine_set_bg_color( float r, float g, float b, float a )
@@ -1556,7 +1565,10 @@ static void init_tile_renderer()
 		"layout(location = 1) in vec2 i_texture_coords;\n"
 		"layout(location = 2) in vec2 i_pos;\n"
 		"layout(location = 3) in vec2 i_texcoords;\n"
+		"layout(location = 4) in float i_animation;\n"
+		"layout(location = 5) in float i_animation_speed;\n"
 		"\n"
+		"uniform float u_animation;\n"
 		"uniform vec2 u_camera;\n"
 		"\n"
 		"out vec2 o_texture_coords;\n"
@@ -1580,7 +1592,16 @@ static void init_tile_renderer()
 		"	);\n"
 		"	vec3 pos = vec3( i_position, 1.0 ) * model * cam;\n"
 		"	gl_Position = vec4( pos.xy, 0.0, 1.0 );\n"
-		"	vec3 tex = vec3( i_texture_coords, 1.0 ) * texmodel;\n"
+		"	float animation = 0.0;\n"
+		"	if ( i_animation > 0.0 ) {\n"
+		"		animation = mod( floor( u_animation / i_animation_speed ), i_animation ) / 128.0;\n"
+		"	}\n"
+		"	mat3 animation_model = mat3(\n"
+		"		vec3( 1.0, 0.0, animation ),\n"
+		"		vec3( 0.0, 1.0, 0.0 ),\n"
+		"		vec3( 0.0, 0.0, 1.0 )\n"
+		"	);\n"
+		"	vec3 tex = vec3( i_texture_coords, 1.0 ) * texmodel * animation_model;\n"
 		"	o_texture_coords = tex.xy;\n"
 		"}\n";
 	
@@ -1645,14 +1666,21 @@ static void init_tile_renderer()
 	glVertexAttribPointer( 3, 2, GL_FLOAT, GL_FALSE, sizeof( tile_graphic_t ), ( void * )( sizeof( pair_t ) ) );
 	glEnableVertexAttribArray( 3 );
 	glVertexAttribDivisor( 3, 1 );
+	glVertexAttribPointer( 4, 1, GL_FLOAT, GL_FALSE, sizeof( tile_graphic_t ), ( void * )( 2 * sizeof( pair_t ) ) );
+	glEnableVertexAttribArray( 4 );
+	glVertexAttribDivisor( 4, 1 );
+	glVertexAttribPointer( 5, 1, GL_FLOAT, GL_FALSE, sizeof( tile_graphic_t ), ( void * )( 2 * sizeof( pair_t ) + sizeof( float ) ) );
+	glEnableVertexAttribArray( 5 );
+	glVertexAttribDivisor( 5, 1 );
     glBindBuffer( GL_ARRAY_BUFFER, 0 );
 
 	GLuint tile_u_texture_location = glGetUniformLocation( tile_program, "u_texture" );
 	glUniform1i( tile_u_texture_location, 0 );
 	GLuint tile_u_palette_texture_location = glGetUniformLocation( tile_program, "u_palette_texture" );
 	glUniform1i( tile_u_palette_texture_location, 1 );
-
 	tile_palette_index_location = glGetUniformLocation( tile_program, "u_palette_index" );
+	tile_animation_location = glGetUniformLocation( tile_program, "u_animation" );
+	glUniform1f( tile_animation_location, 0.0f );
 
 	// Set up camera uniform.
 	tile_camera_location = glGetUniformLocation( tile_program, "u_camera" );
@@ -1807,6 +1835,7 @@ static void render_tiles( const camera_t * camera )
 	glUniform2f( tile_camera_location, camera->x * 2.0f / WINDOW_WIDTH_PIXELS_F, camera->y * 2.0f / WINDOW_HEIGHT_PIXELS_F );
 
 	glUniform1f( tile_palette_index_location, palette_index );
+	glUniform1f( tile_animation_location, tile_animation );
 
 	// Update graphics data.
 	glActiveTexture( GL_TEXTURE0 );

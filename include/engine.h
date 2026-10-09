@@ -1,9 +1,10 @@
 #ifndef ENGINE_H
 #define ENGINE_H
 
-#include "camera.h"
 #include <inttypes.h>
 #include <stddef.h>
+
+struct camera_t;
 
 typedef struct pair_t
 {
@@ -27,9 +28,20 @@ typedef uint_fast16_t rect_gfx_id_t;
 typedef uint_fast16_t sprite_id_t;
 typedef uint_fast16_t tile_id_t;
 
+typedef struct tile_gfx_args_t
+{
+	float x;
+	float y;
+	float srcx;
+	float srcy;
+	float animation;
+	float animation_speed;
+}
+tile_gfx_args_t;
+
 rect_gfx_id_t engine_add_rect( rect_t rect, unsigned int color );
 sprite_id_t engine_add_sprite( rect_t pos, rect_t texcoords );
-tile_id_t engine_add_tile( float x, float y, float srcx, float srcy );
+tile_id_t engine_add_tile( tile_gfx_args_t args );
 void engine_change_bg_layer_texture
 (
 	const unsigned char * pixels,
@@ -44,7 +56,7 @@ void engine_change_texture( const unsigned char * pixels );
 float engine_get_ticks();
 int engine_init( const char * title );
 int engine_loop();
-void engine_render( const camera_t * camera );
+void engine_render( const struct camera_t * camera );
 void engine_set_bg_color( float r, float g, float b, float a );
 void engine_set_bg_color_gradient( unsigned int direction, color_t start, color_t end );
 void engine_set_blur_zoom( float zoom );

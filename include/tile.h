@@ -75,6 +75,7 @@ tile_t create_sloped_tile
 	unsigned int col8, unsigned int col9, unsigned int col10, unsigned int col11,
 	unsigned int col12, unsigned int col13, unsigned int col14, unsigned int col15
 );
+tile_t create_100_gem_tile();
 tile_t create_solid_tile();
 tile_t create_climb_tile();
 tile_t create_solid_top_tile();
@@ -83,6 +84,7 @@ tile_t create_climb_solid_top_tile();
 tile_t create_bouncy_tile();
 void make_tile_underwater( tile_t * tile );
 unsigned int get_tile_slope_colision( tile_t tile, unsigned int x );
+unsigned int is_tile_100_gem( tile_t tile );
 unsigned int is_tile_solid( tile_t tile );
 unsigned int is_tile_slope( tile_t tile );
 unsigned int is_tile_ceiling_slope( tile_t tile );

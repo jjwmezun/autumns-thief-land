@@ -67,6 +67,11 @@ unsigned int get_tile_slope_colision( tile_t tile, unsigned int x )
 	}
 };
 
+tile_t create_100_gem_tile()
+{
+	return ( tile_t ){ .type = TILE_MONEY, .data = { .money = { .amount = 100 } } };
+};
+
 tile_t create_solid_tile()
 {
 	return ( tile_t ){ .type = TILE_NORMAL, .data = { .normal = { .subtype = TILE_SOLID } } };
@@ -95,6 +100,11 @@ tile_t create_bouncy_tile()
 void make_tile_underwater( tile_t * tile )
 {
 	tile->underwater = 1;
+};
+
+unsigned int is_tile_100_gem( tile_t tile )
+{
+	return tile.type == TILE_MONEY && tile.data.money.amount == 100;
 };
 
 unsigned int is_tile_solid( tile_t tile )

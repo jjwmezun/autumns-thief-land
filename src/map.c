@@ -26,14 +26,14 @@ map_t create_map()
 		map.tiles[ ( map.height - 4 ) * map.width + x ] = create_solid_tile();
 	}
 
-	map.tiles[ ( map.height - 6 ) * map.width + 8 ] = create_solid_tile();
-	map.tiles[ ( map.height - 6 ) * map.width + 9 ] = create_solid_tile();
+	map.tiles[ ( map.height - 6 ) * map.width + 8 ] = create_100_gem_tile();
 
+	/*
 	for ( size_t y = 1; y < map.height - 4; ++y )
 	{
 		const unsigned int l = y * map.width + 12;
 		map.tiles[ l ] = create_climb_tile();
-	}
+	}*/
 
 	/*
 	// Create a simple map with solid blocks.
@@ -1170,29 +1170,41 @@ map_t create_map()
 			}
 			else if ( is_tile_solid( tile ) )
 			{
-				engine_add_tile(
-					16.0f * ( float )( x ),
-					16.0f * ( float )( y ),
-					112.0f,
-					0.0f
+				engine_add_tile
+				(
+					( tile_gfx_args_t ) {
+						.x = 16.0f * ( float )( x ),
+						.y = 16.0f * ( float )( y ),
+						.srcx = 14.0f * 8.0f,
+						.srcy = 0.0f * 8.0f
+					}
 				);
-				engine_add_tile(
-					16.0f * ( float )( x ) + 8.0f,
-					16.0f * ( float )( y ),
-					120.0f,
-					0.0f
+				engine_add_tile
+				(
+					( tile_gfx_args_t ) {
+						.x = 16.0f * ( float )( x ) + 8.0f,
+						.y = 16.0f * ( float )( y ),
+						.srcx = 15.0f * 8.0f,
+						.srcy = 0.0f * 8.0f
+					}
 				);
-				engine_add_tile(
-					16.0f * ( float )( x ),
-					16.0f * ( float )( y ) + 8.0f,
-					128.0f,
-					0.0f
+				engine_add_tile
+				(
+					( tile_gfx_args_t ) {
+						.x = 16.0f * ( float )( x ),
+						.y = 16.0f * ( float )( y ) + 8.0f,
+						.srcx = 16.0f * 8.0f,
+						.srcy = 0.0f * 8.0f
+					}
 				);
-				engine_add_tile(
-					16.0f * ( float )( x ) + 8.0f,
-					16.0f * ( float )( y ) + 8.0f,
-					136.0f,
-					0.0f
+				engine_add_tile
+				(
+					( tile_gfx_args_t ) {
+						.x = 16.0f * ( float )( x ) + 8.0f,
+						.y = 16.0f * ( float )( y ) + 8.0f,
+						.srcx = 17.0f * 8.0f,
+						.srcy = 0.0f * 8.0f
+					}
 				);
 			}
 			else if ( tile.type == TILE_SLOPE )
@@ -1203,33 +1215,88 @@ map_t create_map()
 			}
 			else if ( is_tile_climbable( tile ) )
 			{
-				engine_add_tile(
-					16.0f * ( float )( x ),
-					16.0f * ( float )( y ),
-					10.0f * 8.0f,
-					0.0f
+				engine_add_tile
+				(
+					( tile_gfx_args_t ) {
+						.x = 16.0f * ( float )( x ),
+						.y = 16.0f * ( float )( y ),
+						.srcx = 10.0f * 8.0f,
+						.srcy = 0.0f * 8.0f
+					}
 				);
-				engine_add_tile(
-					16.0f * ( float )( x ) + 8.0f,
-					16.0f * ( float )( y ),
-					11.0f * 8.0f,
-					0.0f
+				engine_add_tile
+				(
+					( tile_gfx_args_t ) {
+						.x = 16.0f * ( float )( x ) + 8.0f,
+						.y = 16.0f * ( float )( y ),
+						.srcx = 11.0f * 8.0f,
+						.srcy = 0.0f * 8.0f
+					}
 				);
-				engine_add_tile(
-					16.0f * ( float )( x ),
-					16.0f * ( float )( y ) + 8.0f,
-					10.0f * 8.0f,
-					0.0f
+				engine_add_tile
+				(
+					( tile_gfx_args_t ) {
+						.x = 16.0f * ( float )( x ),
+						.y = 16.0f * ( float )( y ) + 8.0f,
+						.srcx = 10.0f * 8.0f,
+						.srcy = 0.0f * 8.0f
+					}
 				);
-				engine_add_tile(
-					16.0f * ( float )( x ) + 8.0f,
-					16.0f * ( float )( y ) + 8.0f,
-					11.0f * 8.0f,
-					0.0f
+				engine_add_tile
+				(
+					( tile_gfx_args_t ) {
+						.x = 16.0f * ( float )( x ) + 8.0f,
+						.y = 16.0f * ( float )( y ) + 8.0f,
+						.srcx = 11.0f * 8.0f,
+						.srcy = 0.0f * 8.0f
+					}
 				);
 			}
 			else if ( is_tile_solid_top( tile ) )
 			{
+			}
+			else if ( is_tile_100_gem( tile ) )
+			{
+				engine_add_tile
+				(
+					( tile_gfx_args_t ) {
+						.x = 16.0f * ( float )( x ),
+						.y = 16.0f * ( float )( y ),
+						.srcx = 0.0f * 8.0f,
+						.srcy = 1.0f * 8.0f,
+						.animation = 5.0f
+					}
+				);
+				engine_add_tile
+				(
+					( tile_gfx_args_t ) {
+						.x = 16.0f * ( float )( x ) + 8.0f,
+						.y = 16.0f * ( float )( y ),
+						.srcx = 5.0f * 8.0f,
+						.srcy = 1.0f * 8.0f,
+						.animation = 5.0f
+					}
+				);
+				engine_add_tile
+				(
+					( tile_gfx_args_t ) {
+						.x = 16.0f * ( float )( x ),
+						.y = 16.0f * ( float )( y ) + 8.0f,
+						.srcx = 10.0f * 8.0f,
+						.srcy = 1.0f * 8.0f,
+						.animation = 5.0f
+					}
+				);
+				engine_add_tile
+				(
+					( tile_gfx_args_t ) {
+						.x = 16.0f * ( float )( x ) + 8.0f,
+						.y = 16.0f * ( float )( y ) + 8.0f,
+						.srcx = 15.0f * 8.0f,
+						.srcy = 1.0f * 8.0f,
+						.animation = 5.0f
+					}
+				);
 			}
 		}
 	}
