@@ -1262,8 +1262,6 @@ static void init_inventory()
 		inventory_tiles[ i ].texpos.y = get_tile_srcy( 7.0f * 8.0f );
 		++i;
 	}
-
-	printf( "Inventory tiles initialized: %zu, %u\n", i, INVENTORY_TILE_COUNT );
 }
 
 static void init_rect_renderer()

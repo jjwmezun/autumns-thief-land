@@ -95,7 +95,6 @@ int main()
 
 	// Init BG.
 	gfx_data_t bg_gfx_data = data_get_background_gfx_data( 1 );
-	printf( "Background gfx data: width=%zu, height=%zu\n", bg_gfx_data.width, bg_gfx_data.height );
 	unsigned char bgpixels[ bg_gfx_data.width * bg_gfx_data.height ];
 	memset( bgpixels, 0, bg_gfx_data.width * bg_gfx_data.height );
 	for ( size_t y = 0; y < bg_gfx_data.height; ++y )

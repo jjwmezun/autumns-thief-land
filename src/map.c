@@ -27,6 +27,29 @@ map_t create_map()
 	}
 
 	map.tiles[ ( map.height - 6 ) * map.width + 8 ] = create_100_gem_tile();
+	map.tiles[ ( map.height - 5 ) * map.width + 20 ] = create_sloped_tile
+	(
+		TILE_LEFT,
+		TILE_MEDIUM,
+		0,
+		15,
+		14,
+		13,
+		12,
+		11,
+		10,
+		9,
+		8,
+		7,
+		6,
+		5,
+		4,
+		3,
+		2,
+		1,
+		0
+	);
+	map.tiles[ ( map.height - 5 ) * map.width + 21 ] = create_solid_tile();
 
 	/*
 	for ( size_t y = 1; y < map.height - 4; ++y )
@@ -1207,8 +1230,44 @@ map_t create_map()
 					}
 				);
 			}
-			else if ( tile.type == TILE_SLOPE )
+			else if ( is_tile_slope( tile ) )
 			{
+				engine_add_tile
+				(
+					( tile_gfx_args_t ) {
+						.x = 16.0f * ( float )( x ),
+						.y = 16.0f * ( float )( y ),
+						.srcx = 0.0f * 8.0f,
+						.srcy = 5.0f * 8.0f
+					}
+				);
+				engine_add_tile
+				(
+					( tile_gfx_args_t ) {
+						.x = 16.0f * ( float )( x ) + 8.0f,
+						.y = 16.0f * ( float )( y ),
+						.srcx = 1.0f * 8.0f,
+						.srcy = 5.0f * 8.0f
+					}
+				);
+				engine_add_tile
+				(
+					( tile_gfx_args_t ) {
+						.x = 16.0f * ( float )( x ),
+						.y = 16.0f * ( float )( y ) + 8.0f,
+						.srcx = 0.0f * 8.0f,
+						.srcy = 6.0f * 8.0f
+					}
+				);
+				engine_add_tile
+				(
+					( tile_gfx_args_t ) {
+						.x = 16.0f * ( float )( x ) + 8.0f,
+						.y = 16.0f * ( float )( y ) + 8.0f,
+						.srcx = 1.0f * 8.0f,
+						.srcy = 6.0f * 8.0f
+					}
+				);
 			}
 			else if ( is_tile_climb_solid_top( tile ) )
 			{

@@ -164,8 +164,6 @@ static unsigned char * data_get_gfx_data( uint32_t pointer, size_t width, size_t
 		printf( "Warning: %zu unused bits remaining after decoding\n", bits_used );
 	}
 
-	printf( "Decoded %zu pixels / %zu\n", pixels_used, width * height );
-
 	free( decoded );
 
 	return pixels;
