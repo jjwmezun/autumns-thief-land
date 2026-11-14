@@ -784,9 +784,9 @@ unsigned int sprite_slope_physics( const map_t * map, sprite_t * sprite, float y
 	// Avoid out-o’-bounds array access.
 	if
 	(
-		tiley >= WINDOW_HEIGHT_BLOCKS ||
+		tiley >= map->height ||
 		tiley < 0 ||
-		tilex >= WINDOW_WIDTH_BLOCKS ||
+		tilex >= map->width ||
 		tilex < 0
 	)
 	{

@@ -149,6 +149,27 @@ void player_update( map_t * map, sprite_t * sprite, camera_t * camera )
 		}
 	}
 
+	// Handle money collision.
+	collision_t collision = sprite_test_left_collision( map, sprite, is_tile_money );
+	if ( ! collision.valid )
+	{
+		collision = sprite_test_right_collision( map, sprite, is_tile_money );
+	}
+	if ( ! collision.valid )
+	{
+		collision = sprite_test_top_collision( map, sprite, is_tile_money );
+	}
+	if ( ! collision.valid )
+	{
+		collision = sprite_test_bottom_collision( map, sprite, is_tile_money );
+	}
+
+	if ( collision.valid )
+	{
+		inventory_add_lv_pts( get_tile_money_amount( collision.tile ) );
+		map_clear_tile( map, collision.x, collision.y );
+	}
+
 	camera_follow_sprite( camera, sprite, map );
 
 	// Update graphics.
@@ -553,8 +574,8 @@ static void player_update_sliding( map_t * map, sprite_t * player )
 		// Avoid out-of-bounds access to the map array.
 		if (
 			!(
-				vbtiley < WINDOW_HEIGHT_BLOCKS && vbtiley >= 0 &&
-				vctilex < WINDOW_WIDTH_BLOCKS && vctilex >= 0
+				vbtiley < map->height && vbtiley >= 0 &&
+				vctilex < map->width && vctilex >= 0
 			)
 		)
 		{

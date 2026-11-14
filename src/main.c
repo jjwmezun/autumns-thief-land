@@ -2,6 +2,7 @@
 #include "data.h"
 #include "dir.h"
 #include "engine.h"
+#include "inventory.h"
 #include "map.h"
 #include <stdlib.h>
 #include <stdio.h>
@@ -201,6 +202,9 @@ int main()
 			engine_set_blur_zoom( zoom );
 		}
 		*/
+
+		inventory_update();
+		engine_lv_inventory_update( inventory_get_lv_pts_display() );
 
 		engine_render( &camera );
 

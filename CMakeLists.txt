@@ -6,6 +6,7 @@ add_executable(AutumnsThiefLand
     src/camera.c
     src/data.c
     src/engine.c
+    src/inventory.c
     src/main.c
     src/map.c
     src/player.c

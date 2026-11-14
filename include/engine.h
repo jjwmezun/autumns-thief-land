@@ -55,6 +55,7 @@ void engine_change_bg_layer_texture
 void engine_change_texture( const unsigned char * pixels );
 float engine_get_ticks();
 int engine_init( const char * title );
+void engine_lv_inventory_update( uint_fast32_t pts );
 int engine_loop();
 void engine_render( const struct camera_t * camera );
 void engine_set_bg_color( float r, float g, float b, float a );
@@ -71,6 +72,7 @@ void engine_set_sprite_src_x( sprite_id_t sprite_id, float x );
 void engine_set_sprite_h( sprite_id_t sprite_id, float h );
 void engine_set_sprite_x( sprite_id_t sprite_id, float x );
 void engine_set_sprite_y( sprite_id_t sprite_id, float y );
+void engine_set_tile_y( tile_id_t id, float y );
 void engine_sleep( uint16_t ms );
 void engine_update_bg_layer_offset( float x, float y );
 unsigned int input_pressed_down();

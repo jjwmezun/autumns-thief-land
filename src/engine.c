@@ -162,6 +162,7 @@ static float bg_layer_scale_y = 0.0f;
 static float bg_layer_offset_x = -1000.0f;
 static float bg_layer_offset_y = -32.0f;
 static float tile_animation = 0.0f;
+static size_t inventory_ptx_index;
 static struct
 {
 	unsigned int up : 1;
@@ -342,6 +343,36 @@ int engine_init( const char * title )
 	// Make sure vsync is off.
 	SDL_GL_SetSwapInterval( 0 );
 	return 0;
+}
+
+void engine_lv_inventory_update( uint_fast32_t pts )
+{
+	// Split ₧ into list o’ digits.
+	const uint_fast8_t ones = pts % 10;
+	const uint_fast8_t tens = ( pts / 10 ) % 10;
+	const uint_fast8_t hundreds = ( pts / 100 ) % 10;
+	const uint_fast8_t thousands = ( pts / 1000 ) % 10;
+	const uint_fast8_t ten_thousands = ( pts / 10000 ) % 10;
+	const float values[ 5 ] =
+	{
+		ten_thousands,
+		thousands,
+		hundreds,
+		tens,
+		ones
+	};
+
+	// Update ₧ digit tiles.
+	for ( size_t i = 0; i < 5; i++ )
+	{
+		const size_t n = inventory_ptx_index + i;
+		const size_t x = INVENTORY_PT_COUNT_START + ( i * 8.0f );
+
+		inventory_tiles[ n ].pos.x = get_tile_x( x );
+		inventory_tiles[ n ].pos.y = get_tile_y( INVENTORY_Y + 8.0f );
+		inventory_tiles[ n ].texpos.x = get_tile_srcx( values[ i ] * 8.0f );
+		inventory_tiles[ n ].texpos.y = get_tile_srcy( 8.0f * 8.0f );
+	}
 }
 
 int engine_loop()
@@ -703,6 +734,17 @@ void engine_set_sprite_y( sprite_id_t sprite_id, float y )
 	}
 	sprites_data[ sprite_id ].pos.y = y;
 	sprites[ sprite_id ].rect.y = convert_graphic_y( sprites[ sprite_id ].rect.h, y );
+}
+
+void engine_set_tile_y( tile_id_t id, float y )
+{
+	if ( id >= tiles_count )
+	{
+		fprintf( stderr, "Invalid tile ID: %lu\n", id );
+		return;
+	}
+	tiles_data[ id ].pos.y = y;
+	tiles[ id ].pos.y = convert_graphic_y( 8.0f, y );
 }
 
 void engine_sleep( uint16_t ms )
@@ -1173,6 +1215,7 @@ static void init_inventory()
 	++i;
 
 	// ₧ count.
+	inventory_ptx_index = i;
 	for ( size_t x = INVENTORY_PT_COUNT_START; x < INVENTORY_PT_COUNT_START + ( 5 * 8.0f ); x += 8.0f )
 	{
 		inventory_tiles[ i ].pos.x = get_tile_x( x );

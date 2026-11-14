@@ -49,7 +49,49 @@ map_t create_map()
 		1,
 		0
 	);
-	map.tiles[ ( map.height - 5 ) * map.width + 21 ] = create_solid_tile();
+	map.tiles[ ( map.height - 5 ) * map.width + 21 ] = create_sloped_tile(
+		TILE_LEFT,
+		TILE_FLAT,
+		0,
+		0,
+		0,
+		0,
+		0,
+		0,
+		0,
+		0,
+		0,
+		0,
+		0,
+		0,
+		0,
+		0,
+		0,
+		0,
+		0
+	);
+	map.tiles[ ( map.height - 6 ) * map.width + 21 ] = create_sloped_tile
+	(
+		TILE_LEFT,
+		TILE_MEDIUM,
+		0,
+		15,
+		14,
+		13,
+		12,
+		11,
+		10,
+		9,
+		8,
+		7,
+		6,
+		5,
+		4,
+		3,
+		2,
+		1,
+		0
+	);
 
 	/*
 	for ( size_t y = 1; y < map.height - 4; ++y )
@@ -1182,7 +1224,7 @@ map_t create_map()
 		}
 	}*/
 
-	// Add solid block graphics.
+	// Add block graphics.
 	for ( size_t y = 0; y < map.height; ++y )
 	{
 		for ( size_t x = 0; x < map.width; ++x )
@@ -1316,7 +1358,8 @@ map_t create_map()
 			}
 			else if ( is_tile_100_gem( tile ) )
 			{
-				engine_add_tile
+				tile_t * tileref = &map.tiles[ y * map.width + x ];
+				( ( money_data_t * )( tileref->data ) )->gfx1 = engine_add_tile
 				(
 					( tile_gfx_args_t ) {
 						.x = 16.0f * ( float )( x ),
@@ -1326,7 +1369,7 @@ map_t create_map()
 						.animation = 5.0f
 					}
 				);
-				engine_add_tile
+				( ( money_data_t * )( tileref->data ) )->gfx2 = engine_add_tile
 				(
 					( tile_gfx_args_t ) {
 						.x = 16.0f * ( float )( x ) + 8.0f,
@@ -1336,7 +1379,7 @@ map_t create_map()
 						.animation = 5.0f
 					}
 				);
-				engine_add_tile
+				( ( money_data_t * )( tileref->data ) )->gfx3 = engine_add_tile
 				(
 					( tile_gfx_args_t ) {
 						.x = 16.0f * ( float )( x ),
@@ -1346,7 +1389,7 @@ map_t create_map()
 						.animation = 5.0f
 					}
 				);
-				engine_add_tile
+				( ( money_data_t * )( tileref->data ) )->gfx4 = engine_add_tile
 				(
 					( tile_gfx_args_t ) {
 						.x = 16.0f * ( float )( x ) + 8.0f,
@@ -1361,6 +1404,24 @@ map_t create_map()
 	}
 
 	return map;
+}
+
+void map_clear_tile( map_t * map, unsigned int x, unsigned int y )
+{
+	tile_t * ref = &map->tiles[ y * map->width + x ];
+	switch ( ref->type )
+	{
+		case ( TILE_MONEY ):
+		{
+			engine_set_tile_y( ( ( money_data_t * )( ref->data ) )->gfx1, -1000.0f );
+			engine_set_tile_y( ( ( money_data_t * )( ref->data ) )->gfx2, -1000.0f );
+			engine_set_tile_y( ( ( money_data_t * )( ref->data ) )->gfx3, -1000.0f );
+			engine_set_tile_y( ( ( money_data_t * )( ref->data ) )->gfx4, -1000.0f );
+			free( ref->data );
+		}
+		break;
+	}
+	ref->type = 0;
 }
 
 tile_t map_get_tile( const map_t * map, unsigned int x, unsigned int y )
