@@ -65,7 +65,7 @@ tile_t create_100_gem_tile()
 	money_data_t data;
 	data.amount = 100;
 
-	tile_t tile;
+	tile_t tile = { 0 };
 	tile.type = TILE_MONEY;
 	tile.data = malloc( sizeof( money_data_t ) );
 	memcpy( tile.data, &data, sizeof( money_data_t ) );

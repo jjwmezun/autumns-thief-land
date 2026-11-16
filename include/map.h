@@ -2,11 +2,13 @@
 #define MAP_H
 
 #include "tile.h"
+#include <stdint.h>
 
 typedef struct map_t {
     tile_t * tiles;
-    int width;
-    int height;
+    uint_fast16_t width;
+    uint_fast16_t height;
+    unsigned int palette;
 } map_t;
 
 map_t create_map();

@@ -39,6 +39,14 @@ typedef struct tile_gfx_args_t
 }
 tile_gfx_args_t;
 
+float get_tileset_sprite_x( float x );
+float get_tileset_sprite_y( float y );
+float get_tileset_charset_x( float x );
+float get_tileset_charset_y( float y );
+float get_tileset_block_x( float x );
+float get_tileset_block_y( float y );
+float get_tileset_universal_x( float x );
+float get_tileset_universal_y( float y );
 rect_gfx_id_t engine_add_rect( rect_t rect, unsigned int color );
 sprite_id_t engine_add_sprite( rect_t pos, rect_t texcoords );
 tile_id_t engine_add_tile( tile_gfx_args_t args );

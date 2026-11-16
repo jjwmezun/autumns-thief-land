@@ -78,7 +78,7 @@ sprite_t sprite_create( float x, float y, uint8_t type )
 
 			sprite.graphics = engine_add_sprite(
 				( rect_t ){ sprite.x, sprite.y, sprite.w, sprite.h },
-				( rect_t ){ 512.0f, 0.0f, sprite.w, sprite.h }
+				( rect_t ){ get_tileset_sprite_x( 0.0f ), get_tileset_sprite_y( 0.0f ), sprite.w, sprite.h }
 			);
 		}
 		break;

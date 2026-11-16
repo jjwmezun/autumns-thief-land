@@ -53,6 +53,10 @@ int main()
 		return 1;
 	}
 
+	// Init level.
+	level_data_t level_data = data_get_level_data( 0 );
+	map_t map = data_get_map_data( level_data.map_pointers[ 0 ] );
+
 	// Init texture.
 	unsigned char pixels[ 1024 * 1024 ];
 	memset( pixels, 0, 1024 * 1024 );
@@ -64,12 +68,20 @@ int main()
 			pixels[ y * 1024 + x ] = block_gfx_data[ y * 512 + x ] * 32;
 		}
 	}
+	unsigned char * tileset_gfx_data = data_get_tileset_block_gfx_data( 0 );
+	for ( size_t y = 0; y < 256; ++y )
+	{
+		for ( size_t x = 0; x < 512; ++x )
+		{
+			pixels[ ( y + 576 ) * 1024 + x + 512 ] = tileset_gfx_data[ y * 512 + x ] * 32;
+		}
+	}
 	unsigned char * charset_gfx_data = data_get_charset_gfx_data();
 	for ( size_t y = 0; y < 576; ++y )
 	{
 		for ( size_t x = 0; x < 512; ++x )
 		{
-			pixels[ ( y + 64 ) * 1024 + x ] = charset_gfx_data[ y * 512 + x ] * 32;
+			pixels[ y * 1024 + 512 + x ] = charset_gfx_data[ y * 512 + x ] * 32;
 		}
 	}
 	unsigned char * sprite_gfx_data = data_get_sprite_gfx_data();
@@ -77,7 +89,7 @@ int main()
 	{
 		for ( size_t x = 0; x < 512; ++x )
 		{
-			pixels[ y * 1024 + 512 + x ] = sprite_gfx_data[ y * 512 + x ] * 32;
+			pixels[ ( y + 64 ) * 1024 + x ] = sprite_gfx_data[ y * 512 + x ] * 32;
 		}
 	}
 	engine_change_texture( pixels );
@@ -90,8 +102,6 @@ int main()
 
 	rand_init();
 
-	// Init map.
-	map_t map = create_map();
 	camera_t camera = { 0.0f, 0.0f, WINDOW_WIDTH_PIXELS_F, WINDOW_HEIGHT_PIXELS_F };
 
 	// Init BG.
@@ -146,7 +156,7 @@ int main()
 		);
 	}
 
-	engine_set_palette_index( 2 );
+	engine_set_palette_index( map.palette );
 	engine_set_bg_color_gradient
 	(
 		DIR_DOWN,

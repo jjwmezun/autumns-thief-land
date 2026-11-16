@@ -1,4 +1,5 @@
 #include "config.h"
+#include "inventory.h"
 #include <math.h>
 #include "player.h"
 
@@ -183,13 +184,13 @@ void player_update( map_t * map, sprite_t * sprite, camera_t * camera )
 	{
 		sprite->specific.player.walktimer = 0;
 		sprite->specific.player.walkanimation = 0;
-		engine_set_sprite_src_x( sprite->graphics, 512.0f + 72.0f );
+		engine_set_sprite_src_x( sprite->graphics, get_tileset_sprite_x( 72.0f ) );
 	}
 	else if ( ! sprite->onground )
 	{
 		sprite->specific.player.walktimer = 0;
 		sprite->specific.player.walkanimation = 0;
-		engine_set_sprite_src_x( sprite->graphics, 512.0f + 54.0f );
+		engine_set_sprite_src_x( sprite->graphics, get_tileset_sprite_x( 54.0f ) );
 	}
 	else
 	{
@@ -205,13 +206,13 @@ void player_update( map_t * map, sprite_t * sprite, camera_t * camera )
 				: sprite->specific.player.walkanimation == 1
 					? 18.0f
 					: 36.0f;
-			engine_set_sprite_src_x( sprite->graphics, 512.0f + srcx );
+			engine_set_sprite_src_x( sprite->graphics, get_tileset_sprite_x( srcx ) );
 		}
 		else
 		{
 			sprite->specific.player.walktimer = 0;
 			sprite->specific.player.walkanimation = 0;
-			engine_set_sprite_src_x( sprite->graphics, 512.0f );
+			engine_set_sprite_src_x( sprite->graphics, get_tileset_sprite_x( 0.0f ) );
 		}
 	}
 }

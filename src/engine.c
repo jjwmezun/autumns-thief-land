@@ -173,6 +173,46 @@ static struct
 	unsigned int run : 1;
 } pressed;
 
+float get_tileset_sprite_x( float x )
+{
+	return x;
+};
+
+float get_tileset_sprite_y( float y )
+{
+	return y + 64.0f;
+};
+
+float get_tileset_charset_x( float x )
+{
+	return x * 8.0f + 512.0f;
+};
+
+float get_tileset_charset_y( float y )
+{
+	return y * 8.0f;
+};
+
+float get_tileset_block_x( float x )
+{
+	return x * 8.0f + 512.0f;
+};
+
+float get_tileset_block_y( float y )
+{
+	return y * 8.0f + 576.0f;
+};
+
+float get_tileset_universal_x( float x )
+{
+	return x * 8.0f;
+};
+
+float get_tileset_universal_y( float y )
+{
+	return y * 8.0f;
+};
+
 rect_gfx_id_t engine_add_rect( rect_t rect, unsigned int color )
 {
 	if ( rects_count >= MAX_RECTS )
@@ -370,8 +410,8 @@ void engine_lv_inventory_update( uint_fast32_t pts )
 
 		inventory_tiles[ n ].pos.x = get_tile_x( x );
 		inventory_tiles[ n ].pos.y = get_tile_y( INVENTORY_Y + 8.0f );
-		inventory_tiles[ n ].texpos.x = get_tile_srcx( values[ i ] * 8.0f );
-		inventory_tiles[ n ].texpos.y = get_tile_srcy( 8.0f * 8.0f );
+		inventory_tiles[ n ].texpos.x = get_tile_srcx( get_tileset_charset_x( values[ i ] ) );
+		inventory_tiles[ n ].texpos.y = get_tile_srcy( get_tileset_charset_y( 0.0f ) );
 	}
 }
 
@@ -1193,25 +1233,25 @@ static void init_inventory()
 	// HP %
 	inventory_tiles[ i ].pos.x = get_tile_x( INVENTORY_X + 16.0f );
 	inventory_tiles[ i ].pos.y = get_tile_y( INVENTORY_Y + 8.0f );
-	inventory_tiles[ i ].texpos.x = get_tile_srcx( 7.0f * 8.0f );
-	inventory_tiles[ i ].texpos.y = get_tile_srcy( 8.0f * 8.0f );
+	inventory_tiles[ i ].texpos.x = get_tile_srcx( get_tileset_charset_x( 17.0f ) );
+	inventory_tiles[ i ].texpos.y = get_tile_srcy( get_tileset_charset_y( 0.0f ) );
 	++i;
 	inventory_tiles[ i ].pos.x = get_tile_x( INVENTORY_X + 24.0f );
 	inventory_tiles[ i ].pos.y = get_tile_y( INVENTORY_Y + 8.0f );
-	inventory_tiles[ i ].texpos.x = get_tile_srcx( 5.0f * 8.0f );
-	inventory_tiles[ i ].texpos.y = get_tile_srcy( 8.0f * 8.0f );
+	inventory_tiles[ i ].texpos.x = get_tile_srcx( get_tileset_charset_x( 25.0f ) );
+	inventory_tiles[ i ].texpos.y = get_tile_srcy( get_tileset_charset_y( 0.0f ) );
 	++i;
 	inventory_tiles[ i ].pos.x = get_tile_x( INVENTORY_X + 32.0f );
 	inventory_tiles[ i ].pos.y = get_tile_y( INVENTORY_Y + 8.0f );
-	inventory_tiles[ i ].texpos.x = get_tile_srcx( 43.0f * 8.0f );
-	inventory_tiles[ i ].texpos.y = get_tile_srcy( 8.0f * 8.0f );
+	inventory_tiles[ i ].texpos.x = get_tile_srcx( get_tileset_charset_x( 55.0f ) );
+	inventory_tiles[ i ].texpos.y = get_tile_srcy( get_tileset_charset_y( 0.0f ) );
 	++i;
 
 	// ₧ char.
 	inventory_tiles[ i ].pos.x = get_tile_x( INVENTORY_X + 48.0f );
 	inventory_tiles[ i ].pos.y = get_tile_y( INVENTORY_Y + 8.0f );
-	inventory_tiles[ i ].texpos.x = get_tile_srcx( 4.0f * 8.0f );
-	inventory_tiles[ i ].texpos.y = get_tile_srcy( 9.0f * 8.0f );
+	inventory_tiles[ i ].texpos.x = get_tile_srcx( get_tileset_charset_x( 4.0f ) );
+	inventory_tiles[ i ].texpos.y = get_tile_srcy( get_tileset_charset_y( 1.0f ) );
 	++i;
 
 	// ₧ count.
@@ -1220,8 +1260,8 @@ static void init_inventory()
 	{
 		inventory_tiles[ i ].pos.x = get_tile_x( x );
 		inventory_tiles[ i ].pos.y = get_tile_y( INVENTORY_Y + 8.0f );
-		inventory_tiles[ i ].texpos.x = get_tile_srcx( 0.0f * 8.0f );
-		inventory_tiles[ i ].texpos.y = get_tile_srcy( 8.0f * 8.0f );
+		inventory_tiles[ i ].texpos.x = get_tile_srcx( get_tileset_charset_x( 0.0f ) );
+		inventory_tiles[ i ].texpos.y = get_tile_srcy( get_tileset_charset_y( 0.0f ) );
 		++i;
 	}
 
