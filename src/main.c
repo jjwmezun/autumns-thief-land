@@ -104,22 +104,10 @@ int main()
 
 	camera_t camera = { 0.0f, 0.0f, WINDOW_WIDTH_PIXELS_F, WINDOW_HEIGHT_PIXELS_F };
 
-	// Init BG.
-	gfx_data_t bg_gfx_data = data_get_background_gfx_data( 1 );
-	unsigned char bgpixels[ bg_gfx_data.width * bg_gfx_data.height ];
-	memset( bgpixels, 0, bg_gfx_data.width * bg_gfx_data.height );
-	for ( size_t y = 0; y < bg_gfx_data.height; ++y )
-	{
-		for ( size_t x = 0; x < bg_gfx_data.width; ++x )
-		{
-			bgpixels[ y * bg_gfx_data.width + x ] = bg_gfx_data.pixels[ y * bg_gfx_data.width + x ] * 32;
-		}
-	}
-	engine_change_bg_layer_texture( bgpixels, bg_gfx_data.width, bg_gfx_data.height, map.width, map.height, 1.0f, 1.0f );
-
-	// Init other sprites.
+	// Init sprites.
+	unsigned int sprite_gfx_layer = engine_add_layer( GFX_LAYER_TYPE_SPRITE );
 	sprite_t sprites[ SPRITE_COUNT ] = {
-		sprite_create( 16.0f, 15.0f, SPRITE_TYPE_PLAYER ),
+		sprite_create( 16.0f, 15.0f, SPRITE_TYPE_PLAYER, sprite_gfx_layer ),
 		//sprite_create( 10.0f, 15.0f, SPRITE_TYPE_APPLE ),
 		//sprite_create( 22.0f, 15.0f, SPRITE_TYPE_POLLO_STILL ),
 		//sprite_create( 22.0f, 15.0f, SPRITE_TYPE_BEE_SPIN ),
@@ -144,6 +132,7 @@ int main()
 		);
 	}*/
 
+	/*
 	for ( size_t i = 0; i < RAIN_COUNT; ++i )
 	{
 		rain[ i ].h = RAIN_H();
@@ -155,6 +144,7 @@ int main()
 			3
 		);
 	}
+		*/
 
 	engine_set_palette_index( map.palette );
 	engine_set_bg_color_gradient
@@ -183,6 +173,7 @@ int main()
 
 		//engine_update_bg_layer_offset( -1.0f, -0.5f );
 
+		/*
 		for ( size_t i = 0; i < RAIN_COUNT; ++i )
 		{
 			rain[ i ].y += rain[ i ].vy;
@@ -194,7 +185,7 @@ int main()
 			}
 			engine_set_rect_y( rain[ i ].gfx, rain[ i ].y );
 			engine_set_rect_h( rain[ i ].gfx, rain[ i ].h );
-		}
+		}*/
 
 		/*
 		if ( input_pressed_up() )

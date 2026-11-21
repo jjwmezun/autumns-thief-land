@@ -150,10 +150,11 @@ typedef struct sprite_t
 	unsigned int collided_right_slope : 1;
 	unsigned int collided_bottom_slope_steepness : 2;
 	unsigned int collided_bottom_slope_dir : 1;
+	unsigned int gfx_layer;
 }
 sprite_t;
 
-sprite_t sprite_create( float x, float y, uint8_t type );
+sprite_t sprite_create( float x, float y, uint8_t type, unsigned int gfx_layer );
 void sprite_update( map_t * map, sprite_t * sprite, camera_t * camera );
 void sprite_interact( sprite_t * a, sprite_t * b );
 

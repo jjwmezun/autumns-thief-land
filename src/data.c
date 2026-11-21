@@ -16,6 +16,7 @@
 
 static void get_bits_from_byte( unsigned char byte, uint8_t * bits );
 static unsigned char * data_get_gfx_data( uint32_t pointer, size_t width, size_t height );
+static float get_float_from_bytes( const unsigned char * data, size_t i );
 static uint16_t get_uint16_from_bytes( const unsigned char * data, size_t i );
 static uint32_t get_uint32_from_bytes( const unsigned char * data, size_t i );
 static data_t open_file( const char * filename );
@@ -116,7 +117,8 @@ level_data_t data_get_level_data( unsigned int n )
 
 #define OBJECT_TYPE_UNIVERSAL_GEM_100 0
 
-#define OBJECT_TYPE_URBAN_GROUND 256
+#define OBJECT_TYPE_URBAN_GROUND   256
+#define OBJECT_TYPE_URBAN_BUILDING 258
 
 map_t data_get_map_data( uint32_t pointer )
 {
@@ -128,6 +130,7 @@ map_t data_get_map_data( uint32_t pointer )
 	map.height = get_uint16_from_bytes( data.data, pointer );
 	pointer += 2;
 	map.palette = data.data[ pointer++ ];
+	printf( "Palette: %u\n", map.palette );
 	const unsigned int tileset = data.data[ pointer++ ];
 	const unsigned int layer_count = data.data[ pointer++ ];
 
@@ -138,6 +141,7 @@ map_t data_get_map_data( uint32_t pointer )
 	unsigned int state = LAYER_PARSING_LAYER_OPTIONS;
 	uint8_t layer_type = 0;
 	uint16_t object_type = 0;
+	unsigned int current_gfx_layer = 0;
 	while ( current_layer_index < layer_count )
 	{
 		switch ( state )
@@ -152,15 +156,29 @@ map_t data_get_map_data( uint32_t pointer )
 					{
 						const uint32_t scrollx = get_uint32_from_bytes( data.data, pointer );
 						pointer += 4;
+						current_gfx_layer = engine_add_layer( GFX_LAYER_TYPE_TILE );
 					}
 					break;
 					case LAYER_TYPE_BACKGROUND:
 					{
 						const uint8_t graphics = data.data[ pointer++ ];
-						const uint32_t scrollx = get_uint32_from_bytes( data.data, pointer );
+						const float scrollx = get_float_from_bytes( data.data, pointer );
 						pointer += 4;
 						const uint32_t scrolly = get_uint32_from_bytes( data.data, pointer );
 						pointer += 4;
+						current_gfx_layer = engine_add_layer( GFX_LAYER_TYPE_BG );
+
+						gfx_data_t bg_gfx_data = data_get_background_gfx_data( graphics );
+						unsigned char bgpixels[ bg_gfx_data.width * bg_gfx_data.height ];
+						memset( bgpixels, 0, bg_gfx_data.width * bg_gfx_data.height );
+						for ( size_t y = 0; y < bg_gfx_data.height; ++y )
+						{
+							for ( size_t x = 0; x < bg_gfx_data.width; ++x )
+							{
+								bgpixels[ y * bg_gfx_data.width + x ] = bg_gfx_data.pixels[ y * bg_gfx_data.width + x ] * 32;
+							}
+						}
+						engine_change_bg_layer_texture( current_gfx_layer, bgpixels, bg_gfx_data.width, bg_gfx_data.height, map.width, map.height, scrollx, 1.0f );
 					}
 					break;
 					default:
@@ -216,8 +234,10 @@ map_t data_get_map_data( uint32_t pointer )
 									{
 										map.tiles[ ( yi * map.width ) + xi ] = create_100_gem_tile();
 										tile_t * tileref = &map.tiles[ ( yi * map.width ) + xi ];
+										( ( money_data_t * )( tileref->data ) )->gfx_layer = current_gfx_layer;
 										( ( money_data_t * )( tileref->data ) )->gfx1 = engine_add_tile
 										(
+											current_gfx_layer,
 											( tile_gfx_args_t ) {
 												.x = 16.0f * ( float )( xi ),
 												.y = 16.0f * ( float )( yi ),
@@ -228,6 +248,7 @@ map_t data_get_map_data( uint32_t pointer )
 										);
 										( ( money_data_t * )( tileref->data ) )->gfx2 = engine_add_tile
 										(
+											current_gfx_layer,
 											( tile_gfx_args_t ) {
 												.x = 16.0f * ( float )( xi ) + 8.0f,
 												.y = 16.0f * ( float )( yi ),
@@ -238,6 +259,7 @@ map_t data_get_map_data( uint32_t pointer )
 										);
 										( ( money_data_t * )( tileref->data ) )->gfx3 = engine_add_tile
 										(
+											current_gfx_layer,
 											( tile_gfx_args_t ) {
 												.x = 16.0f * ( float )( xi ),
 												.y = 16.0f * ( float )( yi ) + 8.0f,
@@ -248,6 +270,7 @@ map_t data_get_map_data( uint32_t pointer )
 										);
 										( ( money_data_t * )( tileref->data ) )->gfx4 = engine_add_tile
 										(
+											current_gfx_layer,
 											( tile_gfx_args_t ) {
 												.x = 16.0f * ( float )( xi ) + 8.0f,
 												.y = 16.0f * ( float )( yi ) + 8.0f,
@@ -283,6 +306,7 @@ map_t data_get_map_data( uint32_t pointer )
 										{
 											engine_add_tile
 											(
+												current_gfx_layer,
 												( tile_gfx_args_t ) {
 													.x = 16.0f * ( float )( xi ),
 													.y = 16.0f * ( float )( yi ),
@@ -292,6 +316,7 @@ map_t data_get_map_data( uint32_t pointer )
 											);
 											engine_add_tile
 											(
+												current_gfx_layer,
 												( tile_gfx_args_t ) {
 													.x = 16.0f * ( float )( xi ) + 8.0f,
 													.y = 16.0f * ( float )( yi ),
@@ -301,6 +326,7 @@ map_t data_get_map_data( uint32_t pointer )
 											);
 											engine_add_tile
 											(
+												current_gfx_layer,
 												( tile_gfx_args_t ) {
 													.x = 16.0f * ( float )( xi ),
 													.y = 16.0f * ( float )( yi ) + 8.0f,
@@ -310,6 +336,7 @@ map_t data_get_map_data( uint32_t pointer )
 											);
 											engine_add_tile
 											(
+												current_gfx_layer,
 												( tile_gfx_args_t ) {
 													.x = 16.0f * ( float )( xi ) + 8.0f,
 													.y = 16.0f * ( float )( yi ) + 8.0f,
@@ -322,6 +349,7 @@ map_t data_get_map_data( uint32_t pointer )
 										{
 											engine_add_tile
 											(
+												current_gfx_layer,
 												( tile_gfx_args_t ) {
 													.x = 16.0f * ( float )( xi ),
 													.y = 16.0f * ( float )( yi ),
@@ -331,6 +359,7 @@ map_t data_get_map_data( uint32_t pointer )
 											);
 											engine_add_tile
 											(
+												current_gfx_layer,
 												( tile_gfx_args_t ) {
 													.x = 16.0f * ( float )( xi ) + 8.0f,
 													.y = 16.0f * ( float )( yi ),
@@ -340,6 +369,7 @@ map_t data_get_map_data( uint32_t pointer )
 											);
 											engine_add_tile
 											(
+												current_gfx_layer,
 												( tile_gfx_args_t ) {
 													.x = 16.0f * ( float )( xi ),
 													.y = 16.0f * ( float )( yi ) + 8.0f,
@@ -349,6 +379,7 @@ map_t data_get_map_data( uint32_t pointer )
 											);
 											engine_add_tile
 											(
+												current_gfx_layer,
 												( tile_gfx_args_t ) {
 													.x = 16.0f * ( float )( xi ) + 8.0f,
 													.y = 16.0f * ( float )( yi ) + 8.0f,
@@ -359,6 +390,263 @@ map_t data_get_map_data( uint32_t pointer )
 										}
 									}
 								}
+							}
+							break;
+							case ( OBJECT_TYPE_URBAN_BUILDING ):
+							{
+								const uint16_t id = get_uint16_from_bytes( data.data, pointer );
+								pointer += 2;
+								const uint16_t x = get_uint16_from_bytes( data.data, pointer );
+								pointer += 2;
+								const uint16_t y = get_uint16_from_bytes( data.data, pointer );
+								pointer += 2;
+								const uint8_t w = data.data[ pointer++ ];
+								const uint8_t h = data.data[ pointer++ ];
+								const uint8_t door = data.data[ pointer++ ];
+								printf( "Urban building: id=%u, x=%u, y=%u, w=%u, h=%u, door=%u\n", id, x, y, w, h, door );
+
+								for ( uint8_t xi = x; xi < w + x; ++xi )
+								{
+									map.tiles[ ( y * map.width ) + xi ] = create_solid_top_tile();
+								}
+
+								const float ystart = 16.0f * ( float )( y );
+								const float xstart = 16.0f * ( float )( x );
+								const float yend = ystart + 16.0f * ( float )( h );
+								const float xend = xstart + 16.0f * ( float )( w );
+								const float doorx = xstart + 16.0f * ( float )( door );
+								for ( float ypx = ystart; ypx < yend; ypx += 8.0f )
+								{
+									for ( float xpx = xstart; xpx < xend; xpx += 8.0f )
+									{
+										if
+										(
+											(
+												ypx == yend - 8.0f
+												|| ypx == yend - 16.0f
+												|| ypx == yend - 24.0f
+												|| ypx == yend - 32.0f
+											)
+											&&
+											(
+												xpx == doorx
+												|| xpx == doorx + 8.0f
+											)
+										)
+										{
+											continue;
+										}
+
+
+										if ( ypx == ystart )
+										{
+											if ( xpx == xstart )
+											{
+												engine_add_tile
+												(
+													current_gfx_layer,
+													( tile_gfx_args_t ) {
+														.x = xpx,
+														.y = ypx,
+														.srcx = get_tileset_block_x( 22.0f ),
+														.srcy = get_tileset_block_y( 0.0f )
+													}
+												);
+											}
+											else if ( xpx == xend - 8.0f )
+											{
+												engine_add_tile
+												(
+													current_gfx_layer,
+													( tile_gfx_args_t ) {
+														.x = xpx,
+														.y = ypx,
+														.srcx = get_tileset_block_x( 23.0f ),
+														.srcy = get_tileset_block_y( 0.0f )
+													}
+												);
+											}
+											else
+											{
+												engine_add_tile
+												(
+													current_gfx_layer,
+													( tile_gfx_args_t ) {
+														.x = xpx,
+														.y = ypx,
+														.srcx = get_tileset_block_x( 18.0f ),
+														.srcy = get_tileset_block_y( 0.0f )
+													}
+												);
+											}
+										}
+										else if ( ypx == yend - 8.0f )
+										{
+											if ( xpx == xstart )
+											{
+												engine_add_tile
+												(
+													current_gfx_layer,
+													( tile_gfx_args_t ) {
+														.x = xpx,
+														.y = ypx,
+														.srcx = get_tileset_block_x( 24.0f ),
+														.srcy = get_tileset_block_y( 0.0f )
+													}
+												);
+											}
+											else if ( xpx == xend - 8.0f )
+											{
+												engine_add_tile
+												(
+													current_gfx_layer,
+													( tile_gfx_args_t ) {
+														.x = xpx,
+														.y = ypx,
+														.srcx = get_tileset_block_x( 25.0f ),
+														.srcy = get_tileset_block_y( 0.0f )
+													}
+												);
+											}
+											else
+											{
+												engine_add_tile
+												(
+													current_gfx_layer,
+													( tile_gfx_args_t ) {
+														.x = xpx,
+														.y = ypx,
+														.srcx = get_tileset_block_x( 19.0f ),
+														.srcy = get_tileset_block_y( 0.0f )
+													}
+												);
+											}
+										}
+										else
+										{
+											if ( xpx == xstart )
+											{
+												engine_add_tile
+												(
+													current_gfx_layer,
+													( tile_gfx_args_t ) {
+														.x = xpx,
+														.y = ypx,
+														.srcx = get_tileset_block_x( 20.0f ),
+														.srcy = get_tileset_block_y( 0.0f )
+													}
+												);
+											}
+											else if ( xpx == xend - 8.0f )
+											{
+												engine_add_tile
+												(
+													current_gfx_layer,
+													( tile_gfx_args_t ) {
+														.x = xpx,
+														.y = ypx,
+														.srcx = get_tileset_block_x( 21.0f ),
+														.srcy = get_tileset_block_y( 0.0f )
+													}
+												);
+											}
+											else
+											{
+												engine_add_tile
+												(
+													current_gfx_layer,
+													( tile_gfx_args_t ) {
+														.x = xpx,
+														.y = ypx,
+														.srcx = get_tileset_block_x( 17.0f ),
+														.srcy = get_tileset_block_y( 0.0f )
+													}
+												);
+											}
+										}
+									}
+								}
+
+								engine_add_tile
+								(
+									current_gfx_layer,
+									( tile_gfx_args_t ) {
+										.x = doorx,
+										.y = yend - 32.0f,
+										.srcx = get_tileset_block_x( 41.0f ),
+										.srcy = get_tileset_block_y( 0.0f )
+									}
+								);
+								engine_add_tile
+								(
+									current_gfx_layer,
+									( tile_gfx_args_t ) {
+										.x = doorx + 8.0f,
+										.y = yend - 32.0f,
+										.srcx = get_tileset_block_x( 42.0f ),
+										.srcy = get_tileset_block_y( 0.0f )
+									}
+								);
+								engine_add_tile
+								(
+									current_gfx_layer,
+									( tile_gfx_args_t ) {
+										.x = doorx,
+										.y = yend - 24.0f,
+										.srcx = get_tileset_block_x( 43.0f ),
+										.srcy = get_tileset_block_y( 0.0f )
+									}
+								);
+								engine_add_tile
+								(
+									current_gfx_layer,
+									( tile_gfx_args_t ) {
+										.x = doorx + 8.0f,
+										.y = yend - 24.0f,
+										.srcx = get_tileset_block_x( 44.0f ),
+										.srcy = get_tileset_block_y( 0.0f )
+									}
+								);
+								engine_add_tile
+								(
+									current_gfx_layer,
+									( tile_gfx_args_t ) {
+										.x = doorx,
+										.y = yend - 16.0f,
+										.srcx = get_tileset_block_x( 45.0f ),
+										.srcy = get_tileset_block_y( 0.0f )
+									}
+								);
+								engine_add_tile
+								(
+									current_gfx_layer,
+									( tile_gfx_args_t ) {
+										.x = doorx + 8.0f,
+										.y = yend - 16.0f,
+										.srcx = get_tileset_block_x( 46.0f ),
+										.srcy = get_tileset_block_y( 0.0f )
+									}
+								);
+								engine_add_tile
+								(
+									current_gfx_layer,
+									( tile_gfx_args_t ) {
+										.x = doorx,
+										.y = yend - 8.0f,
+										.srcx = get_tileset_block_x( 47.0f ),
+										.srcy = get_tileset_block_y( 0.0f )
+									}
+								);
+								engine_add_tile
+								(
+									current_gfx_layer,
+									( tile_gfx_args_t ) {
+										.x = doorx + 8.0f,
+										.y = yend - 8.0f,
+										.srcx = get_tileset_block_x( 48.0f ),
+										.srcy = get_tileset_block_y( 0.0f )
+									}
+								);
 							}
 							break;
 							default:
@@ -523,6 +811,14 @@ static unsigned char * data_get_gfx_data( uint32_t pointer, size_t width, size_t
 	free( decoded );
 
 	return pixels;
+}
+
+static float get_float_from_bytes( const unsigned char * data, size_t i )
+{
+	float value;
+	const uint32_t as_uint = get_uint32_from_bytes( data, i );
+	memcpy( &value, &as_uint, sizeof( float ) );
+	return value;
 }
 
 static uint16_t get_uint16_from_bytes( const unsigned char * data, size_t i )

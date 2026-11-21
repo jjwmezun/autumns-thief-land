@@ -4,6 +4,11 @@
 #include <inttypes.h>
 #include <stddef.h>
 
+#define GFX_LAYER_TYPE_RECT 0
+#define GFX_LAYER_TYPE_SPRITE 1
+#define GFX_LAYER_TYPE_TILE 2
+#define GFX_LAYER_TYPE_BG 3
+
 struct camera_t;
 
 typedef struct pair_t
@@ -47,11 +52,13 @@ float get_tileset_block_x( float x );
 float get_tileset_block_y( float y );
 float get_tileset_universal_x( float x );
 float get_tileset_universal_y( float y );
+unsigned int engine_add_layer( unsigned int type );
 rect_gfx_id_t engine_add_rect( rect_t rect, unsigned int color );
-sprite_id_t engine_add_sprite( rect_t pos, rect_t texcoords );
-tile_id_t engine_add_tile( tile_gfx_args_t args );
+sprite_id_t engine_add_sprite( unsigned int layer, rect_t pos, rect_t texcoords );
+tile_id_t engine_add_tile( unsigned int layer, tile_gfx_args_t args );
 void engine_change_bg_layer_texture
 (
+	unsigned int layer,
 	const unsigned char * pixels,
 	size_t width,
 	size_t height,
@@ -74,13 +81,13 @@ void engine_set_rect_x( rect_gfx_id_t rect_id, float x );
 void engine_set_rect_y( rect_gfx_id_t rect_id, float y );
 void engine_set_palette_index( unsigned int index );
 void engine_set_palettes( unsigned char * colors, size_t palette_count );
-void engine_set_sprite_flip_x( sprite_id_t sprite_id, unsigned int flip_x );
-void engine_set_sprite_src_h( sprite_id_t sprite_id, float h );
-void engine_set_sprite_src_x( sprite_id_t sprite_id, float x );
-void engine_set_sprite_h( sprite_id_t sprite_id, float h );
-void engine_set_sprite_x( sprite_id_t sprite_id, float x );
-void engine_set_sprite_y( sprite_id_t sprite_id, float y );
-void engine_set_tile_y( tile_id_t id, float y );
+void engine_set_sprite_flip_x( unsigned int layer, sprite_id_t sprite_id, unsigned int flip_x );
+void engine_set_sprite_src_h( unsigned int layer, sprite_id_t sprite_id, float h );
+void engine_set_sprite_src_x( unsigned int layer, sprite_id_t sprite_id, float x );
+void engine_set_sprite_h( unsigned int layer, sprite_id_t sprite_id, float h );
+void engine_set_sprite_x( unsigned int layer, sprite_id_t sprite_id, float x );
+void engine_set_sprite_y( unsigned int layer, sprite_id_t sprite_id, float y );
+void engine_set_tile_y( unsigned int layer, tile_id_t id, float y );
 void engine_sleep( uint16_t ms );
 void engine_update_bg_layer_offset( float x, float y );
 unsigned int input_pressed_down();

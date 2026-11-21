@@ -1224,6 +1224,7 @@ map_t create_map()
 		}
 	}*/
 
+	/*
 	// Add block graphics.
 	for ( size_t y = 0; y < map.height; ++y )
 	{
@@ -1402,6 +1403,7 @@ map_t create_map()
 			}
 		}
 	}
+	*/
 
 	return map;
 }
@@ -1413,10 +1415,11 @@ void map_clear_tile( map_t * map, unsigned int x, unsigned int y )
 	{
 		case ( TILE_MONEY ):
 		{
-			engine_set_tile_y( ( ( money_data_t * )( ref->data ) )->gfx1, -1000.0f );
-			engine_set_tile_y( ( ( money_data_t * )( ref->data ) )->gfx2, -1000.0f );
-			engine_set_tile_y( ( ( money_data_t * )( ref->data ) )->gfx3, -1000.0f );
-			engine_set_tile_y( ( ( money_data_t * )( ref->data ) )->gfx4, -1000.0f );
+			money_data_t * data = ref->data;
+			engine_set_tile_y( data->gfx_layer, data->gfx1, -1000.0f );
+			engine_set_tile_y( data->gfx_layer, data->gfx2, -1000.0f );
+			engine_set_tile_y( data->gfx_layer, data->gfx3, -1000.0f );
+			engine_set_tile_y( data->gfx_layer, data->gfx4, -1000.0f );
 			free( ref->data );
 		}
 		break;

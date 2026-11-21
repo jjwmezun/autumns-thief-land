@@ -10,8 +10,9 @@
 #include "util.h"
 
 #define MAX_RECTS 10000
-#define MAX_SPRITES 10000
+#define MAX_SPRITES 1000
 #define MAX_TILES 10000
+#define MAX_LAYERS 16
 #define INVENTORY_TILE_COUNT ( 62 * 4 + 10 )
 #define INVENTORY_SIZE sizeof( tile_graphic_t ) * INVENTORY_TILE_COUNT
 #define TILE_WIDTH 8.0f / WINDOW_WIDTH_PIXELS_F
@@ -21,6 +22,8 @@
 #define INVENTORY_RIGHT ( WINDOW_WIDTH_PIXELS_F - 8.0f )
 #define INVENTORY_BOTTOM ( WINDOW_HEIGHT_PIXELS_F - 8.0f )
 #define INVENTORY_PT_COUNT_START ( INVENTORY_X + 56.0f )
+
+#define MAX_GFX_LAYERS 16
 
 typedef struct rect_data_t
 {
@@ -57,6 +60,7 @@ typedef struct rect_graphic_t
 	float alpha;
 }
 rect_graphic_t;
+
 typedef struct tile_graphic_t
 {
 	pair_t pos;
@@ -66,10 +70,58 @@ typedef struct tile_graphic_t
 }
 tile_graphic_t;
 
+typedef struct bg_graphic_t
+{
+	float scroll_x;
+	float scroll_y;
+	float texture_width;
+	float texture_height;
+	float scale_x;
+	float scale_y;
+	float offset_x;
+	float offset_y;
+	float texmodel[ 9 ];
+	GLuint texture;
+	unsigned int texture_id;
+}
+bg_graphic_t;
+
+typedef struct gfx_layer_t
+{
+	unsigned int type;
+	union
+	{
+		struct
+		{
+			uint_fast16_t count;
+			rect_graphic_t rect[ MAX_RECTS ];
+		}
+		rect;
+		struct
+		{
+			uint_fast16_t count;
+			tile_graphic_t tile[ MAX_TILES ];
+		}
+		tile;
+		struct
+		{
+			uint_fast16_t count;
+			sprite_graphic_t sprite[ MAX_SPRITES ];
+			sprite_data_t data[ MAX_SPRITES ];
+		}
+		sprite;
+		bg_graphic_t bg;
+	}
+	data;
+}
+gfx_layer_t;
+
 static float convert_graphic_h( float h );
 static float convert_graphic_x( float w, float x );
 static float convert_graphic_y( float h, float y );
 static GLuint create_shader_program( const char * vertex_shader_src, const char * fragment_shader_src );
+static GLuint get_bg_texture_from_id( unsigned int texture_id );
+static unsigned int get_bg_texture_num_from_id( unsigned int texture_id );
 static float get_tile_x( float x );
 static float get_tile_y( float y );
 static float get_tile_srcx( float srcx );
@@ -84,12 +136,12 @@ static void init_spotlight();
 static void init_sprite_renderer();
 static void init_tile_renderer();
 static void render_bg_color();
-static void render_bg_layer( const camera_t * camera );
+static void render_bg_layer( const bg_graphic_t * bg, const camera_t * camera );
 static void render_inventory();
 static void render_rects( const camera_t * camera );
 static void render_spotlight();
-static void render_sprites( const camera_t * camera );
-static void render_tiles( const camera_t * camera );
+static void render_sprites( const sprite_graphic_t * sprites, uint_fast16_t sprites_count, const camera_t * camera );
+static void render_tiles( const tile_graphic_t * tiles, uint_fast16_t tiles_count, const camera_t * camera );
 static void update_screen();
 static void update_viewport();
 
@@ -123,25 +175,19 @@ static GLuint sprite_vao;
 static GLuint sprite_instances_vbo;
 static GLuint sprite_palette_index_location;
 static GLuint sprite_camera_location;
-static sprite_id_t sprites_count = 0;
-static sprite_graphic_t sprites[ MAX_SPRITES ];
-static sprite_data_t sprites_data[ MAX_SPRITES ];
 static GLuint tile_program;
 static GLuint tile_vao;
 static GLuint tile_instances_vbo;
-static tile_graphic_t tiles[ MAX_TILES ];
-static tile_data_t tiles_data[ MAX_TILES ];
-static tile_id_t tiles_count = 0;
 static GLuint tile_palette_index_location;
 static GLuint tile_camera_location;
 static GLuint tile_animation_location;
-static GLuint bg_layer_texture;
 static GLuint bg_layer_program;
 static GLuint bg_layer_vao;
 static GLuint bg_layer_palette_index_location;
 static GLuint bg_layer_camera_location;
 static GLuint bg_layer_model_location;
 static GLuint bg_layer_texmodel_location;
+static GLuint bg_layer_u_texture_location;
 static GLuint spotlight_program;
 static GLuint spotlight_vao;
 static GLuint spotlight_texture;
@@ -153,16 +199,11 @@ static GLuint blur_texture_location;
 static GLuint blur_zoom_location;
 static tile_graphic_t inventory_tiles[ INVENTORY_TILE_COUNT ];
 static float palette_count = 0.0f;
-static float bg_layer_scroll_x = 0.0f;
-static float bg_layer_scroll_y = 0.0f;
-static float bg_layer_texture_width = 0.0f;
-static float bg_layer_texture_height = 0.0f;
-static float bg_layer_scale_x = 0.0f;
-static float bg_layer_scale_y = 0.0f;
-static float bg_layer_offset_x = -1000.0f;
-static float bg_layer_offset_y = -32.0f;
 static float tile_animation = 0.0f;
 static size_t inventory_ptx_index;
+static gfx_layer_t layers[ MAX_LAYERS ];
+static size_t layer_count = 0;
+static unsigned int last_bg_texture = 0;
 static struct
 {
 	unsigned int up : 1;
@@ -213,6 +254,30 @@ float get_tileset_universal_y( float y )
 	return y * 8.0f;
 };
 
+unsigned int engine_add_layer( unsigned int type )
+{
+	if ( layer_count >= MAX_LAYERS )
+	{
+		fprintf( stderr, "Maximum number of layers reached.\n" );
+		return 1;
+	}
+
+	layers[ layer_count ].type = type;
+
+	// Init layer.
+	switch ( type )
+	{
+		case GFX_LAYER_TYPE_BG:
+		{
+			// Init texture ID to unique value to prevent interfering with other BGs.
+			layers[ layer_count ].data.bg.texture_id = last_bg_texture++;
+		}
+		break;
+	}
+
+	return layer_count++;
+}
+
 rect_gfx_id_t engine_add_rect( rect_t rect, unsigned int color )
 {
 	if ( rects_count >= MAX_RECTS )
@@ -232,51 +297,82 @@ rect_gfx_id_t engine_add_rect( rect_t rect, unsigned int color )
 	return rects_count++;
 }
 
-sprite_id_t engine_add_sprite( rect_t pos, rect_t texcoords )
+sprite_id_t engine_add_sprite( unsigned int layer, rect_t pos, rect_t texcoords )
 {
-	if ( sprites_count >= MAX_SPRITES )
+	if ( layer >= layer_count )
+	{
+		fprintf( stderr, "Invalid layer index for adding sprite: %u\n", layer );
+		return 1;
+	}
+
+	if ( layers[ layer ].type != GFX_LAYER_TYPE_SPRITE )
+	{
+		fprintf( stderr, "Invalid layer type for adding sprite: %u\n", layers[ layer ].type );
+		return 1;
+	}
+
+	const unsigned int count = layers[ layer ].data.sprite.count;
+	if ( count >= MAX_SPRITES )
 	{
 		fprintf( stderr, "Maximum number of sprites reached.\n" );
 		return 1;
 	}
 
-	sprites_data[ sprites_count ].pos = pos;
-	sprites_data[ sprites_count ].texcoords = texcoords;
+	sprite_data_t * sprite_data = &layers[ layer ].data.sprite.data[ count ];
+	sprite_graphic_t * sprite_graphic = &layers[ layer ].data.sprite.sprite[ count ];
+	sprite_data->pos = pos;
+	sprite_data->texcoords = texcoords;
 	pos.w /= WINDOW_WIDTH_PIXELS_F;
 	pos.h /= WINDOW_HEIGHT_PIXELS_F;
 	pos.x = convert_graphic_x( pos.w, pos.x );
 	pos.y = convert_graphic_y( pos.h, pos.y );
-	sprites[ sprites_count ].rect = pos;
+	sprite_graphic->rect = pos;
 	texcoords.w /= 1024.0f;
 	texcoords.h /= 1024.0f;
 	texcoords.x /= 1024.0f;
 	texcoords.y /= 1024.0f;
-	sprites[ sprites_count ].texcoords = texcoords;
-	sprites[ sprites_count ].flip = ( pair_t ){ 1.0f, 1.0f };
-	return sprites_count++;
+	sprite_graphic->texcoords = texcoords;
+	sprite_graphic->flip = ( pair_t ){ 1.0f, 1.0f };
+
+	return layers[ layer ].data.sprite.count++;
 }
 
-tile_id_t engine_add_tile( tile_gfx_args_t args )
+tile_id_t engine_add_tile( unsigned int layer, tile_gfx_args_t args )
 {
-	if ( tiles_count >= MAX_TILES )
+	if ( layer >= layer_count )
+	{
+		fprintf( stderr, "Invalid layer index for adding tile: %u\n", layer );
+		return 1;
+	}
+
+	if ( layers[ layer ].type != GFX_LAYER_TYPE_TILE )
+	{
+		fprintf( stderr, "Invalid layer type for adding tile: %u\n", layers[ layer ].type );
+		return 1;
+	}
+
+	const unsigned int count = layers[ layer ].data.tile.count;
+	if ( count >= MAX_TILES )
 	{
 		fprintf( stderr, "Maximum number of tiles reached.\n" );
 		return 1;
 	}
 
-	tiles_data[ tiles_count ].pos.x = args.x;
-	tiles_data[ tiles_count ].pos.y = args.y;
-	tiles[ tiles_count ].pos.x = get_tile_x( args.x );
-	tiles[ tiles_count ].pos.y = get_tile_y( args.y );
-	tiles[ tiles_count ].texpos.x = get_tile_srcx( args.srcx );
-	tiles[ tiles_count ].texpos.y = get_tile_srcy( args.srcy );
-	tiles[ tiles_count ].animation = args.animation;
-	tiles[ tiles_count ].animation_speed = args.animation_speed == 0.0f ? 8.0f : args.animation_speed;
-	return tiles_count++;
+	layers[ layer ].data.tile.tile[ count ].pos.x = args.x;
+	layers[ layer ].data.tile.tile[ count ].pos.y = args.y;
+	layers[ layer ].data.tile.tile[ count ].pos.x = get_tile_x( args.x );
+	layers[ layer ].data.tile.tile[ count ].pos.y = get_tile_y( args.y );
+	layers[ layer ].data.tile.tile[ count ].texpos.x = get_tile_srcx( args.srcx );
+	layers[ layer ].data.tile.tile[ count ].texpos.y = get_tile_srcy( args.srcy );
+	layers[ layer ].data.tile.tile[ count ].animation = args.animation;
+	layers[ layer ].data.tile.tile[ count ].animation_speed = args.animation_speed == 0.0f ? 8.0f : args.animation_speed;
+	
+	return layers[ layer ].data.tile.count++;
 }
 
 void engine_change_bg_layer_texture
 (
+	unsigned int layer,
 	const unsigned char * pixels,
 	size_t width,
 	size_t height,
@@ -286,42 +382,56 @@ void engine_change_bg_layer_texture
 	float scroll_y
 )
 {
-	glActiveTexture( GL_TEXTURE2 );
-	if ( bg_layer_texture == 0 )
+	if ( layer >= layer_count )
 	{
-		glGenTextures( 1, &bg_layer_texture );
+		fprintf( stderr, "Invalid layer index for changing background texture: %u\n", layer );
+		return;
 	}
-	glBindTexture( GL_TEXTURE_2D, bg_layer_texture );
+
+	if ( layers[ layer ].type != GFX_LAYER_TYPE_BG )
+	{
+		fprintf( stderr, "Invalid layer type for changing background texture: %u\n", layers[ layer ].type );
+		return;
+	}
+
+	glActiveTexture( get_bg_texture_from_id( layers[ layer ].data.bg.texture_id ) );
+	if ( layers[ layer ].data.bg.texture == 0 )
+	{
+		glGenTextures( 1, &layers[ layer ].data.bg.texture );
+	}
+	glBindTexture( GL_TEXTURE_2D, layers[ layer ].data.bg.texture );
 	glTexImage2D( GL_TEXTURE_2D, 0, GL_RED, width, height, 0, GL_RED, GL_UNSIGNED_BYTE, pixels );
 	glTexParameteri( GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST );
 	glTexParameteri( GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST );
 
 	glUseProgram( bg_layer_program );
 
-	bg_layer_scroll_x = scroll_x;
-	bg_layer_scroll_y = scroll_y;
-	bg_layer_texture_width = ( float )( width );
-	bg_layer_texture_height = ( float )( height );
+	layers[ layer ].data.bg.scroll_x = scroll_x;
+	layers[ layer ].data.bg.scroll_y = scroll_y;
+	layers[ layer ].data.bg.texture_width = ( float )( width );
+	layers[ layer ].data.bg.texture_height = ( float )( height );
 	const float map_width_pixels = ( float )( map_width * 16 );
 	const float map_height_pixels = ( float )( map_height * 16 );
 	const float xmulti = MAX( map_width_pixels, WINDOW_WIDTH_PIXELS_F );
 	const float ymulti = MAX( map_height_pixels, WINDOW_HEIGHT_PIXELS_F );
 	const float xmulti2 = xmulti / WINDOW_WIDTH_PIXELS_F;
 	const float ymulti2 = ymulti / WINDOW_HEIGHT_PIXELS_F;
-	const float xmulti3 = 1.0f + xmulti2 * bg_layer_scroll_x;
-	const float ymulti3 = 1.0f + ymulti2 * bg_layer_scroll_y;
-	bg_layer_scale_x = xmulti3 * 2.0f;
-	bg_layer_scale_y = ymulti3 * 2.0f;
-	const float texscalex = WINDOW_WIDTH_PIXELS_F / bg_layer_texture_width * bg_layer_scale_x;
-	const float texscaley = WINDOW_HEIGHT_PIXELS_F / bg_layer_texture_height * bg_layer_scale_y;
-
-	const float texmodel[ 9 ] =
-	{
-		texscalex, 0.0f, 0.0f,
-		0.0f, texscaley, 0.0f,
-		0.0f, 0.0f, 1.0f,
-	};
-	glUniformMatrix3fv( bg_layer_texmodel_location, 1, GL_FALSE, texmodel );
+	const float xmulti3 = 1.0f + xmulti2 * layers[ layer ].data.bg.scroll_x;
+	const float ymulti3 = 1.0f + ymulti2 * layers[ layer ].data.bg.scroll_y;
+	layers[ layer ].data.bg.scale_x = xmulti3 * 2.0f;
+	layers[ layer ].data.bg.scale_y = ymulti3 * 2.0f;
+	const float texscalex = WINDOW_WIDTH_PIXELS_F / layers[ layer ].data.bg.texture_width * layers[ layer ].data.bg.scale_x;
+	const float texscaley = WINDOW_HEIGHT_PIXELS_F / layers[ layer ].data.bg.texture_height * layers[ layer ].data.bg.scale_y;
+	
+	layers[ layer ].data.bg.texmodel[ 0 ] = texscalex;
+	layers[ layer ].data.bg.texmodel[ 1 ] = 0.0f;
+	layers[ layer ].data.bg.texmodel[ 2 ] = 0.0f;
+	layers[ layer ].data.bg.texmodel[ 3 ] = 0.0f;
+	layers[ layer ].data.bg.texmodel[ 4 ] = texscaley;
+	layers[ layer ].data.bg.texmodel[ 5 ] = 0.0f;
+	layers[ layer ].data.bg.texmodel[ 6 ] = 0.0f;
+	layers[ layer ].data.bg.texmodel[ 7 ] = 0.0f;
+	layers[ layer ].data.bg.texmodel[ 8 ] = 1.0f;
 }
 
 void engine_change_texture( const unsigned char * pixels )
@@ -503,15 +613,24 @@ void engine_render( const struct camera_t * camera )
 	glClear( GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT );
 
 	// Render elements to framebuffer.
-
-	// Render elements with depth buffering 1st.
-	render_sprites( camera );
-	render_tiles( camera );
-	render_bg_layer( camera );
 	render_bg_color();
 
-	// Render elements without depth buffering 2nd.
-	render_rects( camera );
+	// Render layers.
+	for ( size_t i = 0; i < layer_count; ++i )
+	{
+		switch ( layers[ i ].type )
+		{
+			case GFX_LAYER_TYPE_TILE:
+				render_tiles( layers[ i ].data.tile.tile, layers[ i ].data.tile.count, camera );
+			break;
+			case GFX_LAYER_TYPE_SPRITE:
+				render_sprites( layers[ i ].data.sprite.sprite, layers[ i ].data.sprite.count, camera );
+			break;
+			case GFX_LAYER_TYPE_BG:
+				render_bg_layer( &layers[ i ].data.bg, camera );
+			break;
+		}
+	}
 
 	// Start rendering 2nd framebuffer.
 	glBindFramebuffer( GL_FRAMEBUFFER, fbo[ 1 ] );
@@ -531,8 +650,8 @@ void engine_render( const struct camera_t * camera )
 		glClearColor( 0.0f, 0.0f, 0.0f, 1.0f );
 		glClear( GL_COLOR_BUFFER_BIT );
 		glUseProgram( fbprogram );
-		glUniform1i( fb_texture_location, 3 );
-		glActiveTexture( GL_TEXTURE3 );
+		glUniform1i( fb_texture_location, 2 );
+		glActiveTexture( GL_TEXTURE2 );
 		glBindTexture( GL_TEXTURE_2D, fbtextures[ 0 ] );
 		glBindVertexArray( fbvao );
 		glDrawElements( GL_TRIANGLES, 6, GL_UNSIGNED_INT, 0 );
@@ -542,16 +661,6 @@ void engine_render( const struct camera_t * camera )
 
 	glBindFramebuffer( GL_FRAMEBUFFER, 0 );
 
-	/*
-	update_viewport();
-	glClearColor( 0.0f, 0.0f, 0.0f, 1.0f );
-	glClear( GL_COLOR_BUFFER_BIT );
-	glUseProgram( fbprogram );
-	glUniform1i( fb_texture_location, 4 );
-	glActiveTexture( GL_TEXTURE4 );
-	glBindTexture( GL_TEXTURE_2D, fbtextures[ 1 ] );
-	glBindVertexArray( fbvao );
-	glDrawElements( GL_TRIANGLES, 6, GL_UNSIGNED_INT, 0 );*/
 	glUseProgram( blur_program );
 	glBindVertexArray( blurvao );
 	glDrawElements( GL_TRIANGLES, 6, GL_UNSIGNED_INT, 0 );
@@ -712,79 +821,182 @@ void engine_set_rect_y( rect_gfx_id_t rect_id, float y )
 	rects[ rect_id ].rect.y = convert_graphic_y( rects[ rect_id ].rect.h, y );
 }
 
-void engine_set_sprite_flip_x( sprite_id_t sprite_id, unsigned int flip_x )
+void engine_set_sprite_flip_x( unsigned int layer, sprite_id_t sprite_id, unsigned int flip_x )
 {
-	sprites[ sprite_id ].flip.x = flip_x ? -1.0f : 1.0f;
-}
+	if ( layer >= layer_count )
+	{
+		fprintf( stderr, "Invalid layer ID: %u\n", layer );
+		return;
+	}
 
-void engine_set_sprite_src_h( sprite_id_t sprite_id, float h )
-{
-	if ( sprite_id >= sprites_count )
+	if ( layers[ layer ].type != GFX_LAYER_TYPE_SPRITE )
+	{
+		fprintf( stderr, "Layer is not a sprite layer: %u\n", layer );
+		return;
+	}
+
+	const unsigned int count = layers[ layer ].data.sprite.count;
+	if ( sprite_id >= count )
 	{
 		fprintf( stderr, "Invalid sprite ID: %lu\n", sprite_id );
 		return;
 	}
-	sprites_data[ sprite_id ].texcoords.h = h;
-	sprites[ sprite_id ].texcoords.h = h / 1024.0f;
+
+	layers[ layer ].data.sprite.sprite[ sprite_id ].flip.x = flip_x ? -1.0f : 1.0f;
 }
 
-void engine_set_sprite_src_x( sprite_id_t sprite_id, float x )
+void engine_set_sprite_src_h( unsigned int layer, sprite_id_t sprite_id, float h )
 {
-	if ( sprite_id >= sprites_count )
+	if ( layer >= layer_count )
+	{
+		fprintf( stderr, "Invalid layer ID: %u\n", layer );
+		return;
+	}
+
+	if ( layers[ layer ].type != GFX_LAYER_TYPE_SPRITE )
+	{
+		fprintf( stderr, "Layer is not a sprite layer: %u\n", layer );
+		return;
+	}
+
+	const unsigned int count = layers[ layer ].data.sprite.count;
+	if ( sprite_id >= count )
 	{
 		fprintf( stderr, "Invalid sprite ID: %lu\n", sprite_id );
 		return;
 	}
-	sprites_data[ sprite_id ].texcoords.x = x;
-	sprites[ sprite_id ].texcoords.x = x / 1024.0f;
+
+	layers[ layer ].data.sprite.data[ sprite_id ].texcoords.h = h;
+	layers[ layer ].data.sprite.sprite[ sprite_id ].texcoords.h = h / 1024.0f;
 }
 
-void engine_set_sprite_h( sprite_id_t sprite_id, float h )
+void engine_set_sprite_src_x( unsigned int layer, sprite_id_t sprite_id, float x )
 {
-	if ( sprite_id >= sprites_count )
+	if ( layer >= layer_count )
+	{
+		fprintf( stderr, "Invalid layer ID: %u\n", layer );
+		return;
+	}
+
+	if ( layers[ layer ].type != GFX_LAYER_TYPE_SPRITE )
+	{
+		fprintf( stderr, "Layer is not a sprite layer: %u\n", layer );
+		return;
+	}
+
+	const unsigned int count = layers[ layer ].data.sprite.count;
+	if ( sprite_id >= count )
 	{
 		fprintf( stderr, "Invalid sprite ID: %lu\n", sprite_id );
 		return;
 	}
-	sprites_data[ sprite_id ].pos.h = h;
-	sprites[ sprite_id ].rect.h = convert_graphic_h( h );
-	sprites[ sprite_id ].rect.y = convert_graphic_y
+
+	layers[ layer ].data.sprite.data[ sprite_id ].texcoords.x = x;
+	layers[ layer ].data.sprite.sprite[ sprite_id ].texcoords.x = x / 1024.0f;
+}
+
+void engine_set_sprite_h( unsigned int layer, sprite_id_t sprite_id, float h )
+{
+	if ( layer >= layer_count )
+	{
+		fprintf( stderr, "Invalid layer ID: %u\n", layer );
+		return;
+	}
+
+	if ( layers[ layer ].type != GFX_LAYER_TYPE_SPRITE )
+	{
+		fprintf( stderr, "Layer is not a sprite layer: %u\n", layer );
+		return;
+	}
+
+	const unsigned int count = layers[ layer ].data.sprite.count;
+	if ( sprite_id >= count )
+	{
+		fprintf( stderr, "Invalid sprite ID: %lu\n", sprite_id );
+		return;
+	}
+
+	layers[ layer ].data.sprite.data[ sprite_id ].pos.h = h;
+	layers[ layer ].data.sprite.sprite[ sprite_id ].rect.h = convert_graphic_h( h );
+	layers[ layer ].data.sprite.sprite[ sprite_id ].rect.y = convert_graphic_y
 	(
-		sprites[ sprite_id ].rect.h, sprites_data[ sprite_id ].pos.y
+		layers[ layer ].data.sprite.sprite[ sprite_id ].rect.h, layers[ layer ].data.sprite.data[ sprite_id ].pos.y
 	);
 }
 
-void engine_set_sprite_x( sprite_id_t sprite_id, float x )
+void engine_set_sprite_x( unsigned int layer, sprite_id_t sprite_id, float x )
 {
-	if ( sprite_id >= sprites_count )
+	if ( layer >= layer_count )
+	{
+		fprintf( stderr, "Invalid layer ID: %u\n", layer );
+		return;
+	}
+
+	if ( layers[ layer ].type != GFX_LAYER_TYPE_SPRITE )
+	{
+		fprintf( stderr, "Layer is not a sprite layer: %u\n", layer );
+		return;
+	}
+
+	const unsigned int count = layers[ layer ].data.sprite.count;
+	if ( sprite_id >= count )
 	{
 		fprintf( stderr, "Invalid sprite ID: %lu\n", sprite_id );
 		return;
 	}
-	sprites_data[ sprite_id ].pos.x = x;
-	sprites[ sprite_id ].rect.x = convert_graphic_x( sprites[ sprite_id ].rect.w, x );
+
+	layers[ layer ].data.sprite.data[ sprite_id ].pos.x = x;
+	layers[ layer ].data.sprite.sprite[ sprite_id ].rect.x = convert_graphic_x( layers[ layer ].data.sprite.sprite[ sprite_id ].rect.w, x );
 }
 
-void engine_set_sprite_y( sprite_id_t sprite_id, float y )
+void engine_set_sprite_y( unsigned int layer, sprite_id_t sprite_id, float y )
 {
-	if ( sprite_id >= sprites_count )
+	if ( layer >= layer_count )
+	{
+		fprintf( stderr, "Invalid layer ID: %u\n", layer );
+		return;
+	}
+
+	if ( layers[ layer ].type != GFX_LAYER_TYPE_SPRITE )
+	{
+		fprintf( stderr, "Layer is not a sprite layer: %u\n", layer );
+		return;
+	}
+
+	const unsigned int count = layers[ layer ].data.sprite.count;
+	if ( sprite_id >= count )
 	{
 		fprintf( stderr, "Invalid sprite ID: %lu\n", sprite_id );
 		return;
 	}
-	sprites_data[ sprite_id ].pos.y = y;
-	sprites[ sprite_id ].rect.y = convert_graphic_y( sprites[ sprite_id ].rect.h, y );
+
+	layers[ layer ].data.sprite.data[ sprite_id ].pos.y = y;
+	layers[ layer ].data.sprite.sprite[ sprite_id ].rect.y = convert_graphic_y( layers[ layer ].data.sprite.sprite[ sprite_id ].rect.h, y );
 }
 
-void engine_set_tile_y( tile_id_t id, float y )
+void engine_set_tile_y( unsigned int layer, tile_id_t id, float y )
 {
-	if ( id >= tiles_count )
+	if ( layer >= layer_count )
+	{
+		fprintf( stderr, "Invalid layer ID: %u\n", layer );
+		return;
+	}
+
+	if ( layers[ layer ].type != GFX_LAYER_TYPE_TILE )
+	{
+		fprintf( stderr, "Layer is not a tile layer: %u\n", layer );
+		return;
+	}
+
+	const tile_id_t count = layers[ layer ].data.tile.count;
+	if ( id >= count )
 	{
 		fprintf( stderr, "Invalid tile ID: %lu\n", id );
 		return;
 	}
-	tiles_data[ id ].pos.y = y;
-	tiles[ id ].pos.y = convert_graphic_y( 8.0f, y );
+
+	//layers[ layer ].data.tile.tile[ id ].pos.y = y;
+	layers[ layer ].data.tile.tile[ id ].pos.y = convert_graphic_y( 8.0f, y );
 }
 
 void engine_sleep( uint16_t ms )
@@ -794,8 +1006,8 @@ void engine_sleep( uint16_t ms )
 
 void engine_update_bg_layer_offset( float x, float y )
 {
-	bg_layer_offset_x = fmod( bg_layer_offset_x + x, bg_layer_texture_width );
-	bg_layer_offset_y = fmod( bg_layer_offset_y + y, bg_layer_texture_height );
+	//bg_layer_offset_x = fmod( bg_layer_offset_x + x, bg_layer_texture_width );
+	//bg_layer_offset_y = fmod( bg_layer_offset_y + y, bg_layer_texture_height );
 }
 
 unsigned int input_pressed_down()
@@ -866,6 +1078,36 @@ static GLuint create_shader_program( const char * vertex_shader_src, const char 
         printf( "Shader program linking failed! %s\n", log );
     }
 	return program;
+}
+
+static GLuint get_bg_texture_from_id( unsigned int texture_id )
+{
+	switch ( texture_id )
+	{
+		case 0: return GL_TEXTURE5;
+		case 1: return GL_TEXTURE6;
+		case 2: return GL_TEXTURE7;
+		case 3: return GL_TEXTURE8;
+		default: {
+			printf( "Invalid texture ID: %u\n", texture_id );
+			return 0;
+		}
+	}
+}
+
+static unsigned int get_bg_texture_num_from_id( unsigned int texture_id )
+{
+	switch ( texture_id )
+	{
+		case 0: return 5;
+		case 1: return 6;
+		case 2: return 7;
+		case 3: return 8;
+		default: {
+			printf( "Invalid texture ID: %u\n", texture_id );
+			return 0;
+		}
+	}
 }
 
 static float get_tile_x( float x )
@@ -1025,8 +1267,8 @@ static void init_bg_layer_renderer()
 	glBindBuffer( GL_ELEMENT_ARRAY_BUFFER, ebo );
 	glBufferData( GL_ELEMENT_ARRAY_BUFFER, sizeof( indices ), indices, GL_STATIC_DRAW );
 
-	GLuint bg_layer_u_texture_location = glGetUniformLocation( bg_layer_program, "u_texture" );
-	glUniform1i( bg_layer_u_texture_location, 2 );
+	bg_layer_u_texture_location = glGetUniformLocation( bg_layer_program, "u_texture" );
+	//glUniform1i( bg_layer_u_texture_location, 5 );
 	GLuint bg_layer_u_palette_texture_location = glGetUniformLocation( bg_layer_program, "u_palette_texture" );
 	glUniform1i( bg_layer_u_palette_texture_location, 1 );
 	bg_layer_palette_index_location = glGetUniformLocation( bg_layer_program, "u_palette_index" );
@@ -1117,7 +1359,7 @@ static void init_blur()
 	glBufferData( GL_ELEMENT_ARRAY_BUFFER, sizeof( indices ), indices, GL_STATIC_DRAW );
 
 	blur_texture_location = glGetUniformLocation( blur_program, "u_texture" );
-	glUniform1i( blur_texture_location, 4 );
+	glUniform1i( blur_texture_location, 3 );
 	blur_zoom_location = glGetUniformLocation( blur_program, "u_zoom" );
 	glUniform1f( blur_zoom_location, 1.0f );
 
@@ -1188,7 +1430,7 @@ static void init_framebuffers()
 	glGenRenderbuffers( 2, rbo );
 	glGenTextures( 2, fbtextures );
 	glBindFramebuffer( GL_FRAMEBUFFER, fbo[ 0 ] );
-	glActiveTexture( GL_TEXTURE3 );
+	glActiveTexture( GL_TEXTURE2 );
 	glBindTexture( GL_TEXTURE_2D, fbtextures[ 0 ] );
 	glTexImage2D( GL_TEXTURE_2D, 0, GL_RGBA, WINDOW_WIDTH_PIXELS * magnification, WINDOW_HEIGHT_PIXELS * magnification, 0, GL_RGBA, GL_UNSIGNED_BYTE, NULL );
 	glTexParameteri( GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST );
@@ -1202,7 +1444,7 @@ static void init_framebuffers()
 		printf( "Error generating framebuffer.\n" );
 	}
 	glBindFramebuffer( GL_FRAMEBUFFER, fbo[ 1 ] );
-	glActiveTexture( GL_TEXTURE4 );
+	glActiveTexture( GL_TEXTURE3 );
 	glBindTexture( GL_TEXTURE_2D, fbtextures[ 1 ] );
 	glTexImage2D( GL_TEXTURE_2D, 0, GL_RGBA, WINDOW_WIDTH_PIXELS * magnification, WINDOW_HEIGHT_PIXELS * magnification, 0, GL_RGBA, GL_UNSIGNED_BYTE, NULL );
 	glTexParameteri( GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST );
@@ -1222,48 +1464,6 @@ static void init_framebuffers()
 static void init_inventory()
 {
 	size_t i = 0;
-
-	// HP icon.
-	inventory_tiles[ i ].pos.x = get_tile_x( INVENTORY_X + 8.0f );
-	inventory_tiles[ i ].pos.y = get_tile_y( INVENTORY_Y + 8.0f );
-	inventory_tiles[ i ].texpos.x = get_tile_srcx( 54.0f * 8.0f );
-	inventory_tiles[ i ].texpos.y = get_tile_srcy( 7.0f * 8.0f );
-	++i;
-
-	// HP %
-	inventory_tiles[ i ].pos.x = get_tile_x( INVENTORY_X + 16.0f );
-	inventory_tiles[ i ].pos.y = get_tile_y( INVENTORY_Y + 8.0f );
-	inventory_tiles[ i ].texpos.x = get_tile_srcx( get_tileset_charset_x( 17.0f ) );
-	inventory_tiles[ i ].texpos.y = get_tile_srcy( get_tileset_charset_y( 0.0f ) );
-	++i;
-	inventory_tiles[ i ].pos.x = get_tile_x( INVENTORY_X + 24.0f );
-	inventory_tiles[ i ].pos.y = get_tile_y( INVENTORY_Y + 8.0f );
-	inventory_tiles[ i ].texpos.x = get_tile_srcx( get_tileset_charset_x( 25.0f ) );
-	inventory_tiles[ i ].texpos.y = get_tile_srcy( get_tileset_charset_y( 0.0f ) );
-	++i;
-	inventory_tiles[ i ].pos.x = get_tile_x( INVENTORY_X + 32.0f );
-	inventory_tiles[ i ].pos.y = get_tile_y( INVENTORY_Y + 8.0f );
-	inventory_tiles[ i ].texpos.x = get_tile_srcx( get_tileset_charset_x( 55.0f ) );
-	inventory_tiles[ i ].texpos.y = get_tile_srcy( get_tileset_charset_y( 0.0f ) );
-	++i;
-
-	// ₧ char.
-	inventory_tiles[ i ].pos.x = get_tile_x( INVENTORY_X + 48.0f );
-	inventory_tiles[ i ].pos.y = get_tile_y( INVENTORY_Y + 8.0f );
-	inventory_tiles[ i ].texpos.x = get_tile_srcx( get_tileset_charset_x( 4.0f ) );
-	inventory_tiles[ i ].texpos.y = get_tile_srcy( get_tileset_charset_y( 1.0f ) );
-	++i;
-
-	// ₧ count.
-	inventory_ptx_index = i;
-	for ( size_t x = INVENTORY_PT_COUNT_START; x < INVENTORY_PT_COUNT_START + ( 5 * 8.0f ); x += 8.0f )
-	{
-		inventory_tiles[ i ].pos.x = get_tile_x( x );
-		inventory_tiles[ i ].pos.y = get_tile_y( INVENTORY_Y + 8.0f );
-		inventory_tiles[ i ].texpos.x = get_tile_srcx( get_tileset_charset_x( 0.0f ) );
-		inventory_tiles[ i ].texpos.y = get_tile_srcy( get_tileset_charset_y( 0.0f ) );
-		++i;
-	}
 
 	// Inside box.
 	for ( size_t y = INVENTORY_Y + 8.0f; y < INVENTORY_BOTTOM - 8.0f; y += 8.0f )
@@ -1343,6 +1543,48 @@ static void init_inventory()
 		inventory_tiles[ i ].pos.y = get_tile_y( y );
 		inventory_tiles[ i ].texpos.x = get_tile_srcx( 60.0f * 8.0f );
 		inventory_tiles[ i ].texpos.y = get_tile_srcy( 7.0f * 8.0f );
+		++i;
+	}
+
+	// HP icon.
+	inventory_tiles[ i ].pos.x = get_tile_x( INVENTORY_X + 8.0f );
+	inventory_tiles[ i ].pos.y = get_tile_y( INVENTORY_Y + 8.0f );
+	inventory_tiles[ i ].texpos.x = get_tile_srcx( 54.0f * 8.0f );
+	inventory_tiles[ i ].texpos.y = get_tile_srcy( 7.0f * 8.0f );
+	++i;
+
+	// HP %
+	inventory_tiles[ i ].pos.x = get_tile_x( INVENTORY_X + 16.0f );
+	inventory_tiles[ i ].pos.y = get_tile_y( INVENTORY_Y + 8.0f );
+	inventory_tiles[ i ].texpos.x = get_tile_srcx( get_tileset_charset_x( 17.0f ) );
+	inventory_tiles[ i ].texpos.y = get_tile_srcy( get_tileset_charset_y( 0.0f ) );
+	++i;
+	inventory_tiles[ i ].pos.x = get_tile_x( INVENTORY_X + 24.0f );
+	inventory_tiles[ i ].pos.y = get_tile_y( INVENTORY_Y + 8.0f );
+	inventory_tiles[ i ].texpos.x = get_tile_srcx( get_tileset_charset_x( 25.0f ) );
+	inventory_tiles[ i ].texpos.y = get_tile_srcy( get_tileset_charset_y( 0.0f ) );
+	++i;
+	inventory_tiles[ i ].pos.x = get_tile_x( INVENTORY_X + 32.0f );
+	inventory_tiles[ i ].pos.y = get_tile_y( INVENTORY_Y + 8.0f );
+	inventory_tiles[ i ].texpos.x = get_tile_srcx( get_tileset_charset_x( 55.0f ) );
+	inventory_tiles[ i ].texpos.y = get_tile_srcy( get_tileset_charset_y( 0.0f ) );
+	++i;
+
+	// ₧ char.
+	inventory_tiles[ i ].pos.x = get_tile_x( INVENTORY_X + 48.0f );
+	inventory_tiles[ i ].pos.y = get_tile_y( INVENTORY_Y + 8.0f );
+	inventory_tiles[ i ].texpos.x = get_tile_srcx( get_tileset_charset_x( 4.0f ) );
+	inventory_tiles[ i ].texpos.y = get_tile_srcy( get_tileset_charset_y( 1.0f ) );
+	++i;
+
+	// ₧ count.
+	inventory_ptx_index = i;
+	for ( size_t x = INVENTORY_PT_COUNT_START; x < INVENTORY_PT_COUNT_START + ( 5 * 8.0f ); x += 8.0f )
+	{
+		inventory_tiles[ i ].pos.x = get_tile_x( x );
+		inventory_tiles[ i ].pos.y = get_tile_y( INVENTORY_Y + 8.0f );
+		inventory_tiles[ i ].texpos.x = get_tile_srcx( get_tileset_charset_x( 0.0f ) );
+		inventory_tiles[ i ].texpos.y = get_tile_srcy( get_tileset_charset_y( 0.0f ) );
 		++i;
 	}
 }
@@ -1508,7 +1750,7 @@ static void init_spotlight()
 	glBindBuffer( GL_ELEMENT_ARRAY_BUFFER, ebo );
 	glBufferData( GL_ELEMENT_ARRAY_BUFFER, sizeof( indices ), indices, GL_STATIC_DRAW );
 
-	glActiveTexture( GL_TEXTURE5 );
+	glActiveTexture( GL_TEXTURE4 );
 	if ( spotlight_texture == 0 )
 	{
 		glGenTextures( 1, &spotlight_texture );
@@ -1519,9 +1761,9 @@ static void init_spotlight()
 	glTexParameteri( GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST );
 
 	spotlight_texture_index_location = glGetUniformLocation( spotlight_program, "u_texture" );
-	glUniform1i( spotlight_texture_index_location, 5 );
+	glUniform1i( spotlight_texture_index_location, 4 );
 	spotlight_fbtexture_index_location = glGetUniformLocation( spotlight_program, "u_fbtexture" );
-	glUniform1i( spotlight_fbtexture_index_location, 3 );
+	glUniform1i( spotlight_fbtexture_index_location, 2 );
 	glUseProgram( 0 );
 }
 
@@ -1770,9 +2012,6 @@ static void init_tile_renderer()
 
 static void render_bg_color()
 {
-	glDisable( GL_BLEND );
-	glEnable( GL_DEPTH_TEST );
-
 	glUseProgram( bg_color_program );
 
 	// Draw graphics.
@@ -1780,18 +2019,15 @@ static void render_bg_color()
 	glDrawElements( GL_TRIANGLES, 6, GL_UNSIGNED_INT, 0 );
 }
 
-static void render_bg_layer( const camera_t * camera )
+static void render_bg_layer( const bg_graphic_t * bg, const camera_t * camera )
 {
-	glDisable( GL_BLEND );
-	glEnable( GL_DEPTH_TEST );
-
 	glUseProgram( bg_layer_program );
 
 	// Update camera.
 	const float camera_mat[ 9 ] =
 	{
-		1.0f, 0.0f, -( camera->x * 2.0f / WINDOW_WIDTH_PIXELS_F ) * bg_layer_scroll_x,
-		0.0f, 1.0f, ( camera->y * 2.0f / WINDOW_HEIGHT_PIXELS_F ) * bg_layer_scroll_y,
+		1.0f, 0.0f, -( camera->x * 2.0f / WINDOW_WIDTH_PIXELS_F ) * bg->scroll_x,
+		0.0f, 1.0f, ( camera->y * 2.0f / WINDOW_HEIGHT_PIXELS_F ) * bg->scroll_y,
 		0.0f, 0.0f, 1.0f,
 	};
 	glUniformMatrix3fv( bg_layer_camera_location, 1, GL_FALSE, camera_mat );
@@ -1799,14 +2035,14 @@ static void render_bg_layer( const camera_t * camera )
 	// Update palette.
 	glUniform1f( bg_layer_palette_index_location, palette_index );
 
-	const float bgw = bg_layer_scale_x * WINDOW_WIDTH_PIXELS_F;
-	const float bgh = bg_layer_scale_y * WINDOW_HEIGHT_PIXELS_F;
-	const float xoffset = bg_layer_offset_x > 0.0f
-		? -bg_layer_texture_width + bg_layer_offset_x
-		: bg_layer_offset_x;
-	const float yoffset = bg_layer_offset_y > 0.0f
-		? -bg_layer_texture_height + bg_layer_offset_y
-		: bg_layer_offset_y;
+	const float bgw = bg->scale_x * WINDOW_WIDTH_PIXELS_F;
+	const float bgh = bg->scale_y * WINDOW_HEIGHT_PIXELS_F;
+	const float xoffset = bg->offset_x > 0.0f
+		? -bg->texture_width + bg->offset_x
+		: bg->offset_x;
+	const float yoffset = bg->offset_y > 0.0f
+		? -bg->texture_height + bg->offset_y
+		: bg->offset_y;
 	const float bgcenterx = bgw / 2.0f + xoffset;
 	const float bgcentery = bgh / 2.0f + yoffset;
 	const float screencenterx = WINDOW_WIDTH_PIXELS_F / 2.0f;
@@ -1818,11 +2054,13 @@ static void render_bg_layer( const camera_t * camera )
 
 	const float model[ 9 ] =
 	{
-		bg_layer_scale_x, 0.0f, xpos,
-		0.0f, bg_layer_scale_y, -ypos,
+		bg->scale_x, 0.0f, xpos,
+		0.0f, bg->scale_y, -ypos,
 		0.0f, 0.0f, 1.0f,
 	};
 	glUniformMatrix3fv( bg_layer_model_location, 1, GL_FALSE, model );
+	glUniformMatrix3fv( bg_layer_texmodel_location, 1, GL_FALSE, bg->texmodel );
+	glUniform1i( bg_layer_u_texture_location, get_bg_texture_num_from_id( bg->texture_id ) );
 
 	// Draw graphics.
 	glBindVertexArray( bg_layer_vao );
@@ -1831,9 +2069,6 @@ static void render_bg_layer( const camera_t * camera )
 
 static void render_inventory()
 {
-	glDisable( GL_BLEND );
-	glEnable( GL_DEPTH_TEST );
-
 	glUseProgram( tile_program );
 
 	// Update uniforms.
@@ -1851,9 +2086,6 @@ static void render_inventory()
 
 static void render_rects( const camera_t * camera )
 {
-	glEnable( GL_BLEND );
-	glDisable( GL_DEPTH_TEST );
-
 	glUseProgram( rect_program );
 
 	// Update camera.
@@ -1873,9 +2105,6 @@ static void render_rects( const camera_t * camera )
 
 static void render_spotlight()
 {
-	glDisable( GL_BLEND );
-	glDisable( GL_DEPTH_TEST );
-
 	glUseProgram( spotlight_program );
 
 	// Draw graphics.
@@ -1883,11 +2112,8 @@ static void render_spotlight()
 	glDrawElements( GL_TRIANGLES, 6, GL_UNSIGNED_INT, 0 );
 }
 
-static void render_sprites( const camera_t * camera )
+static void render_sprites( const sprite_graphic_t * sprites, uint_fast16_t sprites_count, const camera_t * camera )
 {
-	glDisable( GL_BLEND );
-	glEnable( GL_DEPTH_TEST );
-
 	glUseProgram( sprite_program );
 
 	// Update camera.
@@ -1905,11 +2131,8 @@ static void render_sprites( const camera_t * camera )
 	glDrawElementsInstanced( GL_TRIANGLES, 6, GL_UNSIGNED_INT, 0, sprites_count );
 }
 
-static void render_tiles( const camera_t * camera )
+static void render_tiles( const tile_graphic_t * tiles, uint_fast16_t tiles_count, const camera_t * camera )
 {
-	glDisable( GL_BLEND );
-	glEnable( GL_DEPTH_TEST );
-
 	glUseProgram( tile_program );
 
 	// Update camera.
@@ -1950,13 +2173,13 @@ static void update_screen()
 	update_viewport();
 
 	// Update framebuffer texture sizes & depth buffer sizes.
-	glActiveTexture( GL_TEXTURE3 );
+	glActiveTexture( GL_TEXTURE2 );
 	glBindTexture( GL_TEXTURE_2D, fbtextures[ 0 ] );
 	glTexImage2D( GL_TEXTURE_2D, 0, GL_RGBA, WINDOW_WIDTH_PIXELS * magnification, WINDOW_HEIGHT_PIXELS * magnification, 0, GL_RGBA, GL_UNSIGNED_BYTE, NULL );
 	glBindRenderbuffer( GL_RENDERBUFFER, rbo[ 0 ] );
 	glRenderbufferStorage( GL_RENDERBUFFER, GL_DEPTH24_STENCIL8, WINDOW_WIDTH_PIXELS * magnification, WINDOW_HEIGHT_PIXELS * magnification );
 	glFramebufferRenderbuffer( GL_FRAMEBUFFER, GL_DEPTH_STENCIL_ATTACHMENT, GL_RENDERBUFFER, rbo[ 0 ] );
-	glActiveTexture( GL_TEXTURE4 );
+	glActiveTexture( GL_TEXTURE3 );
 	glBindTexture( GL_TEXTURE_2D, fbtextures[ 1 ] );
 	glTexImage2D( GL_TEXTURE_2D, 0, GL_RGBA, WINDOW_WIDTH_PIXELS * magnification, WINDOW_HEIGHT_PIXELS * magnification, 0, GL_RGBA, GL_UNSIGNED_BYTE, NULL );
 	glBindRenderbuffer( GL_RENDERBUFFER, rbo[ 1 ] );

@@ -7,7 +7,7 @@
 
 #include <stdio.h>
 
-sprite_t sprite_create( float x, float y, uint8_t type )
+sprite_t sprite_create( float x, float y, uint8_t type, unsigned int gfx_layer )
 {
 	// Convert to pixel coordinates.
 	x *= 16.0f;
@@ -49,6 +49,7 @@ sprite_t sprite_create( float x, float y, uint8_t type )
 		.collided_bottom_slope = 0,
 		.collided_bottom_slope_steepness = TILE_FLAT,
         .type = type,
+		.gfx_layer = gfx_layer,
 		.hitbox = {
 			.lpadding = 1.0f,
 			.rpadding = 1.0f,
@@ -77,6 +78,7 @@ sprite_t sprite_create( float x, float y, uint8_t type )
 			sprite.hitbox.tpadding = 6.0f;
 
 			sprite.graphics = engine_add_sprite(
+				gfx_layer,
 				( rect_t ){ sprite.x, sprite.y, sprite.w, sprite.h },
 				( rect_t ){ get_tileset_sprite_x( 0.0f ), get_tileset_sprite_y( 0.0f ), sprite.w, sprite.h }
 			);

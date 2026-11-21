@@ -174,23 +174,23 @@ void player_update( map_t * map, sprite_t * sprite, camera_t * camera )
 	camera_follow_sprite( camera, sprite, map );
 
 	// Update graphics.
-	engine_set_sprite_src_h( sprite->graphics, sprite->h );
-	engine_set_sprite_h( sprite->graphics, sprite->h );
-	engine_set_sprite_x( sprite->graphics, sprite->x );
-	engine_set_sprite_y( sprite->graphics, sprite->y - sprite->h );
-	engine_set_sprite_flip_x( sprite->graphics, sprite->dirx );
+	engine_set_sprite_src_h( sprite->gfx_layer, sprite->graphics, sprite->h );
+	engine_set_sprite_h( sprite->gfx_layer, sprite->graphics, sprite->h );
+	engine_set_sprite_x( sprite->gfx_layer, sprite->graphics, sprite->x );
+	engine_set_sprite_y( sprite->gfx_layer, sprite->graphics, sprite->y - sprite->h );
+	engine_set_sprite_flip_x( sprite->gfx_layer, sprite->graphics, sprite->dirx );
 
 	if ( sprite->specific.player.isducking )
 	{
 		sprite->specific.player.walktimer = 0;
 		sprite->specific.player.walkanimation = 0;
-		engine_set_sprite_src_x( sprite->graphics, get_tileset_sprite_x( 72.0f ) );
+		engine_set_sprite_src_x( sprite->gfx_layer, sprite->graphics, get_tileset_sprite_x( 72.0f ) );
 	}
 	else if ( ! sprite->onground )
 	{
 		sprite->specific.player.walktimer = 0;
 		sprite->specific.player.walkanimation = 0;
-		engine_set_sprite_src_x( sprite->graphics, get_tileset_sprite_x( 54.0f ) );
+		engine_set_sprite_src_x( sprite->gfx_layer, sprite->graphics, get_tileset_sprite_x( 54.0f ) );
 	}
 	else
 	{
@@ -206,13 +206,13 @@ void player_update( map_t * map, sprite_t * sprite, camera_t * camera )
 				: sprite->specific.player.walkanimation == 1
 					? 18.0f
 					: 36.0f;
-			engine_set_sprite_src_x( sprite->graphics, get_tileset_sprite_x( srcx ) );
+			engine_set_sprite_src_x( sprite->gfx_layer, sprite->graphics, get_tileset_sprite_x( srcx ) );
 		}
 		else
 		{
 			sprite->specific.player.walktimer = 0;
 			sprite->specific.player.walkanimation = 0;
-			engine_set_sprite_src_x( sprite->graphics, get_tileset_sprite_x( 0.0f ) );
+			engine_set_sprite_src_x( sprite->gfx_layer, sprite->graphics, get_tileset_sprite_x( 0.0f ) );
 		}
 	}
 }

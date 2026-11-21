@@ -51,6 +51,7 @@ typedef struct money_data_t
 	uint16_t gfx2;
 	uint16_t gfx3;
 	uint16_t gfx4;
+	unsigned int gfx_layer;
 } money_data_t;
 
 typedef struct tile_t {
